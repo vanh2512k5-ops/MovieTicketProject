@@ -1,0 +1,10 @@
+
+.env
+
+backend/bin/
+backend/obj/
+.vs/
+*.user
+
+frontend/node_modules/
+.expo/

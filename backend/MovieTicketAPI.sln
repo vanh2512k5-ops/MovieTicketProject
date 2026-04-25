@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 18
+VisualStudioVersion = 18.2.11430.68 d18.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MovieTicketAPI", "MovieTicketAPI.csproj", "{2DB01BA3-A2E7-3C5F-0C88-38E4A68567E4}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2DB01BA3-A2E7-3C5F-0C88-38E4A68567E4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2DB01BA3-A2E7-3C5F-0C88-38E4A68567E4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2DB01BA3-A2E7-3C5F-0C88-38E4A68567E4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2DB01BA3-A2E7-3C5F-0C88-38E4A68567E4}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {88F5A77C-7AA9-4047-8842-A887C2AF94FC}
+	EndGlobalSection
+EndGlobal
