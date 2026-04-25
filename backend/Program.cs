@@ -1,25 +1,37 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using MovieTicketAPI.Models;
+using Minio;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Cấu hình Database
+// Cấu hình Database
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<MovieTicketContext>(options =>
     options.UseSqlServer(connectionString));
 
-// 2. Kích hoạt Controller và Swagger (Thay cho OpenApi)
+
+builder.Services.AddSingleton<IMinioClient>(sp =>
+{
+    var config = builder.Configuration.GetSection("Minio");
+    return new MinioClient()
+        .WithEndpoint(config["Endpoint"])
+        .WithCredentials(config["AccessKey"], config["SecretKey"])
+        .WithSSL(false)
+        .Build();
+});
+
+//Kích hoạt Controller và Swagger 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(); // [MỚI] Gọi thư viện vẽ giao diện Swagger
+builder.Services.AddSwaggerGen(); 
 
 var app = builder.Build();
 
-// 3. Hiển thị giao diện Swagger khi đang dev
+//Hiển thị giao diện Swagger khi đang dev
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();   // [MỚI]
-    app.UseSwaggerUI(); // [MỚI]
+    app.UseSwagger();   
+    app.UseSwaggerUI(); 
 }
 
 app.UseHttpsRedirection();

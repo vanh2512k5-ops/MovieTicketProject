@@ -160,3 +160,8 @@ C:\MovieTicketProject\backend\obj\Debug\net10.0\ref\MovieTicketAPI.dll
 C:\MovieTicketProject\backend\bin\Debug\net10.0\Swashbuckle.AspNetCore.Swagger.dll
 C:\MovieTicketProject\backend\bin\Debug\net10.0\Swashbuckle.AspNetCore.SwaggerGen.dll
 C:\MovieTicketProject\backend\bin\Debug\net10.0\Swashbuckle.AspNetCore.SwaggerUI.dll
+C:\MovieTicketProject\backend\bin\Debug\net10.0\CommunityToolkit.HighPerformance.dll
+C:\MovieTicketProject\backend\bin\Debug\net10.0\Minio.dll
+C:\MovieTicketProject\backend\bin\Debug\net10.0\System.IO.Hashing.dll
+C:\MovieTicketProject\backend\bin\Debug\net10.0\System.Reactive.dll
+C:\MovieTicketProject\backend\obj\Debug\net10.0\MovieTicketAPI.sourcelink.json
