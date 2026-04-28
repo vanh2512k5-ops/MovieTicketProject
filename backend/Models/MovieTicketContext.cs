@@ -1,6 +1,5 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
-using System.Reflection.Emit;
 
 namespace MovieTicketAPI.Models
 {
@@ -22,19 +21,16 @@ namespace MovieTicketAPI.Models
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            // 1. Cấu hình độ chính xác cho các cột tiền (18 chữ số, 2 số sau dấu phẩy)
             modelBuilder.Entity<Booking>().Property(b => b.TotalPrice).HasColumnType("decimal(18,2)");
             modelBuilder.Entity<Combo>().Property(c => c.Price).HasColumnType("decimal(18,2)");
             modelBuilder.Entity<Showtime>().Property(s => s.BasePrice).HasColumnType("decimal(18,2)");
             modelBuilder.Entity<Ticket>().Property(t => t.Price).HasColumnType("decimal(18,2)");
 
-            // 2. Thiết lập quy tắc xóa: Xóa Booking thì xóa luôn Ticket bên trong
             modelBuilder.Entity<Booking>()
                 .HasMany(b => b.Tickets)
                 .WithOne(t => t.Booking)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // 3. FIX LỖI CASCADE: Cấm tự động xóa Vé khi xóa Ghế để tránh tạo vòng lặp
             modelBuilder.Entity<Ticket>()
                 .HasOne(t => t.Seat)
                 .WithMany()
