@@ -19,10 +19,35 @@ namespace MovieTicketAPI.Controllers
         public async Task<IActionResult> GetShowtimes(int movieId)
         {
             var showtimes = await _context.Showtimes
-                .Where(s => s.MovieId == movieId && s.StartTime > DateTime.UtcNow)
+                .Include(s => s.Room)
+                    .ThenInclude(r => r.Cinema) // Kéo thông tin Rạp chiếu ra
+                .Where(s => s.MovieId == movieId && s.StartTime > DateTime.Now)
                 .OrderBy(s => s.StartTime)
                 .ToListAsync();
-            return Ok(showtimes);
+
+            var groupedShowtimes = showtimes
+                .Where(s => s.Room != null && s.Room.Cinema != null)
+                .GroupBy(s => new { s.Room.Cinema.Id, s.Room.Cinema.Name })
+                .Select(g => new
+                {
+                    cinemaId = g.Key.Id,
+                    cinemaName = g.Key.Name,
+                    schedules = g.Select(s => new
+                    {
+                        showtimeId = s.Id,
+                        roomName = s.Room.Name,
+                        startTime = s.StartTime,
+                        basePrice = s.BasePrice
+                    }).ToList()
+                })
+                .ToList();
+
+            if (!groupedShowtimes.Any())
+            {
+                return NotFound("Chưa có lịch chiếu");
+            }
+
+            return Ok(groupedShowtimes);
         }
 
         public class CreateShowtimeRequest
@@ -36,7 +61,6 @@ namespace MovieTicketAPI.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateShowtime([FromBody] CreateShowtimeRequest request)
         {
-            // Chống trùng lịch phòng chiếu
             var isConflict = await _context.Showtimes.AnyAsync(s =>
                 s.RoomId == request.RoomId && s.StartTime == request.StartTime);
 

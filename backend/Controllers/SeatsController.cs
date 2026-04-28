@@ -15,34 +15,38 @@ namespace MovieTicketAPI.Controllers
             _context = context;
         }
 
-        // GET: api/seats/room/{roomId}
-        [HttpGet("room/{roomId}")]
-        public async Task<IActionResult> GetSeatsByRoom(int roomId)
+        [HttpGet("showtime/{showtimeId}")]
+        public async Task<IActionResult> GetSeatsForShowtime(int showtimeId)
         {
-            var seats = await _context.Seats
-                .Where(s => s.RoomId == roomId)
-                .OrderBy(s => s.Row)
-                .ThenBy(s => s.Number)
+            // 1. Tìm suất chiếu để biết đang chiếu ở Phòng nào
+            var showtime = await _context.Showtimes.FindAsync(showtimeId);
+            if (showtime == null) return NotFound("Không tìm thấy suất chiếu");
+
+            // 2. Lấy toàn bộ ghế của Phòng đó
+            var allSeats = await _context.Seats
+                .Where(s => s.RoomId == showtime.RoomId)
+                .OrderBy(s => s.Row).ThenBy(s => s.Number)
                 .ToListAsync();
 
-            if (!seats.Any()) return NotFound("Phòng này chưa có ghế hoặc không tồn tại.");
+            // 3. Tìm các ghế ĐÃ BỊ ĐẶT trong suất chiếu này
+            // (Giả sử vé nằm trong bảng Tickets và liên kết với bảng Bookings)
+            var bookedSeatIds = await _context.Tickets
+                .Include(t => t.Booking)
+                .Where(t => t.Booking != null && t.Booking.ShowtimeId == showtimeId)
+                .Select(t => t.SeatId)
+                .ToListAsync();
 
-            return Ok(seats);
-        }
+            // 4. Trả về danh sách ghế kèm trạng thái (Trống/Đã đặt)
+            var result = allSeats.Select(s => new
+            {
+                id = s.Id,
+                row = s.Row,
+                number = s.Number,
+                type = (int)s.Type, // 0: Normal, 1: VIP
+                isBooked = bookedSeatIds.Contains(s.Id)
+            }).ToList();
 
-        // PUT: api/seats/{id}/type
-        // Dùng để đổi loại ghế (VD: Set ghế thành VIP hoặc Lối đi)
-        // 0 = Normal, 1 = VIP, 2 = Couple, 3 = Aisle
-        [HttpPut("{id}/type")]
-        public async Task<IActionResult> UpdateSeatType(int id, [FromBody] SeatType newType)
-        {
-            var seat = await _context.Seats.FindAsync(id);
-            if (seat == null) return NotFound("Không tìm thấy ghế.");
-
-            seat.Type = newType;
-            await _context.SaveChangesAsync();
-
-            return Ok(new { Message = $"Đã cập nhật ghế thành loại {newType}." });
+            return Ok(result);
         }
     }
 }

@@ -25,7 +25,7 @@ namespace MovieTicketAPI.Controllers
 
         public class CreateRoomRequest
         {
-            public int CinemaId { get; set; } // Bắt buộc phải có Rạp trước
+            public int CinemaId { get; set; } 
             public string Name { get; set; } = string.Empty;
             public int NumberOfRows { get; set; }
             public int SeatsPerRow { get; set; }
