@@ -16,7 +16,9 @@ namespace MovieTicketAPI.Models
 
         public string? Genre { get; set; } 
 
-        public double Rating { get; set; } 
+        public double Rating { get; set; }
+        public double AverageRating { get; set; } = 0.0;
+        public int TotalReviews { get; set; } = 0;      
 
         public string? AgeRestriction { get; set; } 
 
