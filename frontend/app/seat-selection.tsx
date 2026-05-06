@@ -46,13 +46,13 @@ export default function SeatSelectionScreen() {
           let typeStr = "Normal";
           if (s.type === 1) typeStr = "VIP";
           else if (s.type === 2) typeStr = "Couple";
-          else if (s.type === 3) typeStr = "Empty"; // Aisle (Lối đi) bên C# map thành Empty
+          else if (s.type === 3) typeStr = "Empty"; 
 
           return {
             id: s.id,
-            rowName: s.row, // Đổi 'row' thành 'rowName'
-            seatNumber: s.number, // Đổi 'number' thành 'seatNumber'
-            type: typeStr, // Đổi số thành chữ
+            rowName: s.row, 
+            seatNumber: s.number, 
+            type: typeStr, 
             isBooked: s.isBooked,
           };
         });
@@ -100,7 +100,6 @@ export default function SeatSelectionScreen() {
     return total + price;
   }, 0);
 
-  // LOGIC KHÔNG BỎ TRỐNG GHẾ CÔ LẬP (Đỉnh cao của sếp)
   const handleContinue = () => {
     let isInvalid = false;
     let errorMsg = "";
