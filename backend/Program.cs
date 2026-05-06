@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using MovieTicketAPI.Models;
+using MovieTicketAPI.Services; // Thêm dòng này để nhận diện thư mục Services
 using Minio;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,17 +26,22 @@ builder.Services.AddSingleton<IMinioClient>(sp =>
 {
     var config = builder.Configuration.GetSection("Minio");
     return new MinioClient()
-        .WithEndpoint(config["Endpoint"]) // Ví dụ: 172.20.10.3:9000
+        .WithEndpoint(config["Endpoint"])
         .WithCredentials(config["AccessKey"], config["SecretKey"])
         .WithSSL(false)
         .Build();
 });
 
+// Đăng ký IMovieService để hệ thống có thể sử dụng logic tính toán Rating
+builder.Services.AddScoped<IMovieService, MovieService>();
+
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
-    }); builder.Services.AddEndpointsApiExplorer();
+    });
+
+builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
