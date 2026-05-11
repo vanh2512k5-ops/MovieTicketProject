@@ -84,7 +84,7 @@ namespace MovieTicketAPI.Controllers
                         }
 
                         // Hàng ghế Couple (K) đẩy sang bên phải
-                        // Thêm 3 ghế tàng hình đầu tiên để tạo khoảng trống
+                        // Thêm 3 ghế tàng hình đầu tiên để tạo khoảng trốn
                         seats.Add(new Seat { RoomId = room.Id, Row = "K", Number = 0, Type = SeatType.Aisle });
                         seats.Add(new Seat { RoomId = room.Id, Row = "K", Number = 0, Type = SeatType.Aisle });
                         seats.Add(new Seat { RoomId = room.Id, Row = "K", Number = 0, Type = SeatType.Aisle });

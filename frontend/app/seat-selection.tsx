@@ -255,7 +255,7 @@ export default function SeatSelectionScreen() {
                             key={seat.id}
                             style={[
                               styles.seat,
-                              { backgroundColor: "transparent" },
+                              { backgroundColor: "transparent" }, //biến ghế empty thành trong suốt
                             ]}
                           />
                         );
