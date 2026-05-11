@@ -1,13 +1,13 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 // Gọi Trạm thu phí Axios
 import axiosClient from "@/utils/axiosClient";
@@ -150,11 +150,14 @@ export default function SeatSelectionScreen() {
 
     const proceedToConcessions = () => {
       router.push({
-        pathname: "/concessions" as any,
+        // 1. Chỉnh lại đường dẫn cho đúng thư mục movie
+        pathname: "/movie/concessions" as any,
         params: {
           showtimeId: showtimeId,
           movieTitle: movieTitle,
+          // 2. Chuyển mảng ID ghế thành chuỗi để truyền qua params
           selectedSeats: JSON.stringify(selectedSeatIds),
+          // 3. Gửi tổng tiền ghế sang để tính tổng cuối cùng
           total: totalPrice,
           posterUrl: posterUrl,
           roomName: roomName,
