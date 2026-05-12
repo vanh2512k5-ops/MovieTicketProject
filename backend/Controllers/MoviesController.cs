@@ -7,6 +7,7 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Formats.Jpeg;
 using System.Linq;
+using System.Net.Http;
 
 namespace MovieTicketAPI.Controllers
 {
@@ -55,6 +56,7 @@ namespace MovieTicketAPI.Controllers
         {
             var movie = await _context.Movies
                 .Include(m => m.Reviews)
+                .Include(m => m.Actors)
                 .FirstOrDefaultAsync(m => m.Id == id);
 
             if (movie == null) return NotFound("Không tìm thấy phim!");
@@ -129,6 +131,142 @@ namespace MovieTicketAPI.Controllers
             {
                 return StatusCode(500, $"Lỗi server: {ex.Message}");
             }
+        }
+
+        // 7. THÊM DIỄN VIÊN KÈM ẢNH (NÉN & UPLOAD MINIO)
+        [HttpPost("{movieId}/actors")]
+        public async Task<IActionResult> AddActor(
+            int movieId,
+            [FromForm] string name,
+            [FromForm] string biography,
+            IFormFile file,
+            [FromServices] IMinioClient minioClient,
+            [FromServices] IConfiguration config)
+        {
+            var movie = await _context.Movies.FindAsync(movieId);
+            if (movie == null) return NotFound("Không tìm thấy phim!");
+            if (file == null || file.Length == 0) return BadRequest("Vui lòng chọn ảnh đại diện cho diễn viên.");
+
+            try
+            {
+                var bucketName = config["Minio:BucketName"] ?? "movietickets";
+                var objectName = $"actor_{movieId}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}.jpg";
+
+                using var outStream = new MemoryStream();
+                using (var image = await Image.LoadAsync(file.OpenReadStream()))
+                {
+                    // Resize và Crop vuông 400x400 cho Avatar
+                    image.Mutate(x => x.Resize(new ResizeOptions
+                    {
+                        Size = new Size(400, 400),
+                        Mode = ResizeMode.Crop
+                    }));
+                    // Nén chất lượng 75%
+                    await image.SaveAsJpegAsync(outStream, new JpegEncoder { Quality = 75 });
+                }
+                outStream.Position = 0;
+
+                var putObjectArgs = new PutObjectArgs()
+                    .WithBucket(bucketName)
+                    .WithObject(objectName)
+                    .WithStreamData(outStream)
+                    .WithObjectSize(outStream.Length)
+                    .WithContentType("image/jpeg");
+
+                await minioClient.PutObjectAsync(putObjectArgs).ConfigureAwait(false);
+
+                string externalIp = "172.20.10.3";
+                var avatarUrl = $"http://{externalIp}:9000/{bucketName}/{objectName}";
+
+                var actor = new Actor
+                {
+                    MovieId = movieId,
+                    Name = name,
+                    Biography = biography,
+                    AvatarUrl = avatarUrl
+                };
+
+                _context.Actors.Add(actor);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { Message = "Thêm diễn viên thành công!", Actor = actor });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Lỗi server: {ex.Message}");
+            }
+        }
+
+        // 8.WEB LINK -> COMPRESS -> MINIO
+        [HttpPost("migrate-actors-to-minio")]
+        public async Task<IActionResult> MigrateActorsToMinio([FromServices] IMinioClient minioClient, [FromServices] IConfiguration config)
+        {
+            var actors = await _context.Actors.ToListAsync();
+            var bucketName = config["Minio:BucketName"] ?? "movietickets";
+            string externalIp = "172.20.10.3";
+            int count = 0;
+
+            using var httpClient = new HttpClient();
+
+            foreach (var actor in actors)
+            {
+                // Chỉ xử lý những ảnh còn là link web (gstatic, pravatar) hoặc base64
+                if (string.IsNullOrEmpty(actor.AvatarUrl) || actor.AvatarUrl.Contains(externalIp)) 
+                    continue;
+
+                try
+                {
+                    byte[] imageBytes;
+
+                    // Xử lý riêng nếu link là chuỗi Base64 (như ảnh của Chadwick Boseman)
+                    if (actor.AvatarUrl.StartsWith("data:image"))
+                    {
+                        var base64Data = actor.AvatarUrl.Substring(actor.AvatarUrl.IndexOf(",") + 1);
+                        imageBytes = Convert.FromBase64String(base64Data);
+                    }
+                    else
+                    {
+                        // 1. Tải ảnh từ web về
+                        imageBytes = await httpClient.GetByteArrayAsync(actor.AvatarUrl);
+                    }
+                    
+                    using var inStream = new MemoryStream(imageBytes);
+
+                    // 2. NÉN ẢNH (Dùng đúng logic nén 75% của sếp)
+                    using var outStream = new MemoryStream();
+                    using (var image = await Image.LoadAsync(inStream))
+                    {
+                        image.Mutate(x => x.Resize(new ResizeOptions {
+                            Size = new Size(400, 400),
+                            Mode = ResizeMode.Crop
+                        }));
+                        await image.SaveAsJpegAsync(outStream, new JpegEncoder { Quality = 75 });
+                    }
+                    outStream.Position = 0;
+
+                    // 3. ĐẨY LÊN MINIO
+                    var objectName = $"actor_migrated_{actor.Id}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}.jpg";
+                    var putObjectArgs = new PutObjectArgs()
+                        .WithBucket(bucketName)
+                        .WithObject(objectName)
+                        .WithStreamData(outStream)
+                        .WithObjectSize(outStream.Length)
+                        .WithContentType("image/jpeg");
+
+                    await minioClient.PutObjectAsync(putObjectArgs);
+
+                    // 4. CẬP NHẬT LẠI DATABASE
+                    actor.AvatarUrl = $"http://{externalIp}:9000/{bucketName}/{objectName}";
+                    count++;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Lỗi khi migrate diễn viên {actor.Name}: {ex.Message}");
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { Message = $"Đã 'MinIO hóa' thành công {count} diễn viên!", Total = actors.Count });
         }
     }
 }
