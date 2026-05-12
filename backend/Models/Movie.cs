@@ -29,5 +29,6 @@ namespace MovieTicketAPI.Models
 
         public ICollection<Showtime> Showtimes { get; set; } = new List<Showtime>();
         public ICollection<Review> Reviews { get; set; } = new List<Review>();
+        public ICollection<Actor> Actors { get; set; } = new List<Actor>();
     }
 }
