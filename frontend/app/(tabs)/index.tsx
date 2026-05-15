@@ -26,8 +26,15 @@ interface Movie {
 }
 
 const GENRES = [
-  "Tất cả", "Tâm lý", "Tình cảm", "Hành động", 
-  "Phiêu lưu", "Hoạt hình", "Gia đình", "Kinh dị", "Giật gân",
+  "Tất cả",
+  "Tâm lý",
+  "Tình cảm",
+  "Hành động",
+  "Phiêu lưu",
+  "Hoạt hình",
+  "Gia đình",
+  "Kinh dị",
+  "Giật gân",
 ];
 
 export default function HomeScreen() {
@@ -42,6 +49,15 @@ export default function HomeScreen() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGenre, setSelectedGenre] = useState("Tất cả");
+
+  const getImageUrl = (path?: string) => {
+    if (!path) return "https://via.placeholder.com/300x450.png?text=No+Image";
+    if (path.startsWith("http") || path.startsWith("data:image")) return path;
+
+    const minioBaseUrl =
+      process.env.EXPO_PUBLIC_MINIO_URL || "http://172.20.10.3:9000";
+    return `${minioBaseUrl}${path}`;
+  };
 
   const checkUserSession = async () => {
     try {
@@ -61,7 +77,6 @@ export default function HomeScreen() {
     }
   };
 
-  // Dùng axiosClient và truyền params theo chuẩn Axios
   const fetchMovies = async (keyword = "", genre = "Tất cả") => {
     setIsLoading(true);
     try {
@@ -71,7 +86,6 @@ export default function HomeScreen() {
           genre: genre === "Tất cả" ? "" : genre,
         },
       });
-      // Axios tự động parse JSON nên chỉ cần gọi response.data
       setMovies(response.data);
     } catch (error) {
       console.error("Lỗi tải phim:", error);
@@ -106,9 +120,10 @@ export default function HomeScreen() {
       onPress={() => router.push(`/movie/${item.id}` as any)}
     >
       <View style={styles.posterContainer}>
+        {/* 👇 ĐÃ BỌC HÀM GETIMAGEURL VÀO ĐÂY 👇 */}
         <Image
           source={{
-            uri: item.posterUrl || "https://via.placeholder.com/300x450.png?text=No+Image",
+            uri: getImageUrl(item.posterUrl),
           }}
           style={styles.poster}
         />
@@ -119,8 +134,12 @@ export default function HomeScreen() {
         )}
       </View>
       <View style={styles.movieInfo}>
-        <Text style={styles.movieTitle} numberOfLines={1}>{item.title}</Text>
-        <Text style={styles.movieGenre} numberOfLines={1}>{item.genre || "Đang cập nhật"}</Text>
+        <Text style={styles.movieTitle} numberOfLines={1}>
+          {item.title}
+        </Text>
+        <Text style={styles.movieGenre} numberOfLines={1}>
+          {item.genre || "Đang cập nhật"}
+        </Text>
         <View style={styles.ratingContainer}>
           <Text style={styles.ratingStar}>⭐</Text>
           <Text style={styles.ratingText}>{item.rating.toFixed(1)}/10</Text>
@@ -154,13 +173,17 @@ export default function HomeScreen() {
                         Alert.alert("Thành công", "Đã đăng xuất an toàn.");
                       },
                     },
-                  ]
+                  ],
                 );
               }
             }}
           >
             <Image
-              source={{ uri: isLoggedIn ? "https://i.pravatar.cc/100?img=11" : "https://via.placeholder.com/100x100.png?text=Guest" }}
+              source={{
+                uri: isLoggedIn
+                  ? "https://i.pravatar.cc/100?img=11"
+                  : "https://via.placeholder.com/100x100.png?text=Guest",
+              }}
               style={styles.avatar}
             />
             <View>
@@ -171,19 +194,27 @@ export default function HomeScreen() {
 
           <View style={styles.rightActions}>
             {userRole === "Admin" && (
-              <TouchableOpacity style={styles.adminBtn} onPress={() => router.push("/admin-manage-movies" as any)}>
+              <TouchableOpacity
+                style={styles.adminBtn}
+                onPress={() => router.push("/admin-manage-movies" as any)}
+              >
                 <Text style={styles.adminBtnText}>⚙️ Quản trị</Text>
               </TouchableOpacity>
             )}
             {isLoggedIn && (
-              <TouchableOpacity style={styles.myTicketBtn} onPress={() => router.push("/my-tickets" as any)}>
+              <TouchableOpacity
+                style={styles.myTicketBtn}
+                onPress={() => router.push("/my-tickets" as any)}
+              >
                 <Text style={styles.myTicketText}>🎟️ Vé của tôi</Text>
               </TouchableOpacity>
             )}
           </View>
         </View>
 
-        {!isLoggedIn && <Text style={styles.loginHint}>Đăng nhập / Đăng ký</Text>}
+        {!isLoggedIn && (
+          <Text style={styles.loginHint}>Đăng nhập / Đăng ký</Text>
+        )}
 
         <View style={styles.searchBar}>
           <Text style={{ color: "#A0AEC0", marginRight: 10 }}>🔍</Text>
@@ -196,7 +227,11 @@ export default function HomeScreen() {
           />
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery("")}>
-              <Text style={{ color: "#A0AEC0", fontSize: 16, paddingHorizontal: 5 }}>✖</Text>
+              <Text
+                style={{ color: "#A0AEC0", fontSize: 16, paddingHorizontal: 5 }}
+              >
+                ✖
+              </Text>
             </TouchableOpacity>
           )}
         </View>
@@ -209,10 +244,20 @@ export default function HomeScreen() {
             keyExtractor={(item) => item}
             renderItem={({ item }) => (
               <TouchableOpacity
-                style={[styles.genreChip, selectedGenre === item && styles.genreChipActive]}
+                style={[
+                  styles.genreChip,
+                  selectedGenre === item && styles.genreChipActive,
+                ]}
                 onPress={() => setSelectedGenre(item)}
               >
-                <Text style={[styles.genreText, selectedGenre === item && styles.genreTextActive]}>{item}</Text>
+                <Text
+                  style={[
+                    styles.genreText,
+                    selectedGenre === item && styles.genreTextActive,
+                  ]}
+                >
+                  {item}
+                </Text>
               </TouchableOpacity>
             )}
           />
@@ -221,16 +266,47 @@ export default function HomeScreen() {
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#E53E3E" />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#E53E3E"
+          />
+        }
       >
         <View style={styles.bannerContainer}>
-          <Image source={{ uri: "https://files.betacorp.vn/files/media%2Fimages%2F2024%2F04%2F04%2F1701399313271-920x420-1-094320-040424-95.png" }} style={styles.bannerImage} />
+          <Image
+            source={{
+              uri: "https://files.betacorp.vn/files/media%2Fimages%2F2024%2F04%2F04%2F1701399313271-920x420-1-094320-040424-95.png",
+            }}
+            style={styles.bannerImage}
+          />
         </View>
+
+        <TouchableOpacity
+          style={{
+            backgroundColor: "#38A169",
+            padding: 15,
+            marginHorizontal: 20,
+            marginBottom: 20,
+            borderRadius: 10,
+            alignItems: "center",
+          }}
+          onPress={() => router.push("/admin/room-list" as any)} // Đổi sang room-list
+        >
+          <Text style={{ color: "#FFF", fontWeight: "bold" }}>
+            🛠 QUẢN LÝ PHÒNG CHIẾU (ADMIN)
+          </Text>
+        </TouchableOpacity>
 
         <Text style={styles.sectionTitle}>🎬 PHIM ĐANG CHIẾU</Text>
 
         {isLoading ? (
-          <ActivityIndicator size="large" color="#E53E3E" style={{ marginTop: 20 }} />
+          <ActivityIndicator
+            size="large"
+            color="#E53E3E"
+            style={{ marginTop: 20 }}
+          />
         ) : (
           <View style={styles.movieListContainer}>
             <FlatList
@@ -240,7 +316,11 @@ export default function HomeScreen() {
               scrollEnabled={false}
               columnWrapperStyle={styles.row}
               renderItem={renderMovieCard}
-              ListEmptyComponent={<Text style={styles.emptyText}>Mọt phim ơi, không tìm thấy kết quả nào! 🍿</Text>}
+              ListEmptyComponent={
+                <Text style={styles.emptyText}>
+                  Mọt phim ơi, không tìm thấy kết quả nào! 🍿
+                </Text>
+              }
             />
           </View>
         )}
@@ -251,38 +331,124 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#1A202C" },
-  header: { paddingTop: 50, paddingHorizontal: 20, paddingBottom: 15, backgroundColor: "#2D3748", borderBottomWidth: 1, borderBottomColor: "#4A5568" },
-  headerTopRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 15 },
+  header: {
+    paddingTop: 50,
+    paddingHorizontal: 20,
+    paddingBottom: 15,
+    backgroundColor: "#2D3748",
+    borderBottomWidth: 1,
+    borderBottomColor: "#4A5568",
+  },
+  headerTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 15,
+  },
   userInfo: { flexDirection: "row", alignItems: "center", flex: 1 },
-  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#E53E3E", marginRight: 12 },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#E53E3E",
+    marginRight: 12,
+  },
   greeting: { color: "#A0AEC0", fontSize: 14 },
   userName: { color: "#FFF", fontSize: 18, fontWeight: "bold" },
   rightActions: { flexDirection: "row", alignItems: "center", gap: 10 },
-  adminBtn: { backgroundColor: "#4299E1", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
+  adminBtn: {
+    backgroundColor: "#4299E1",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
   adminBtnText: { color: "#FFF", fontSize: 11, fontWeight: "bold" },
-  myTicketBtn: { backgroundColor: "#E53E3E", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
+  myTicketBtn: {
+    backgroundColor: "#E53E3E",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
   myTicketText: { color: "#FFF", fontSize: 11, fontWeight: "bold" },
-  loginHint: { color: "#4299E1", fontSize: 12, marginTop: -10, marginBottom: 15, fontWeight: "bold" },
-  searchBar: { flexDirection: "row", alignItems: "center", backgroundColor: "#1A202C", borderRadius: 10, paddingHorizontal: 15, height: 45, borderWidth: 1, borderColor: "#4A5568", marginBottom: 15 },
+  loginHint: {
+    color: "#4299E1",
+    fontSize: 12,
+    marginTop: -10,
+    marginBottom: 15,
+    fontWeight: "bold",
+  },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1A202C",
+    borderRadius: 10,
+    paddingHorizontal: 15,
+    height: 45,
+    borderWidth: 1,
+    borderColor: "#4A5568",
+    marginBottom: 15,
+  },
   searchInput: { flex: 1, color: "#FFF", fontSize: 15 },
   genreListContainer: { height: 35 },
-  genreChip: { backgroundColor: "#1A202C", paddingHorizontal: 15, paddingVertical: 8, borderRadius: 15, marginRight: 10, borderWidth: 1, borderColor: "#4A5568", justifyContent: "center" },
+  genreChip: {
+    backgroundColor: "#1A202C",
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 15,
+    marginRight: 10,
+    borderWidth: 1,
+    borderColor: "#4A5568",
+    justifyContent: "center",
+  },
   genreChipActive: { backgroundColor: "#E53E3E", borderColor: "#E53E3E" },
   genreText: { color: "#A0AEC0", fontSize: 13, fontWeight: "bold" },
   genreTextActive: { color: "#FFF" },
   scrollContent: { paddingBottom: 30 },
-  bannerContainer: { margin: 20, height: 160, borderRadius: 12, overflow: "hidden" },
+  bannerContainer: {
+    margin: 20,
+    height: 160,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
   bannerImage: { width: "100%", height: "100%", resizeMode: "cover" },
-  sectionTitle: { color: "#FFF", fontSize: 16, fontWeight: "bold", paddingHorizontal: 20, marginBottom: 15 },
+  sectionTitle: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "bold",
+    paddingHorizontal: 20,
+    marginBottom: 15,
+  },
   movieListContainer: { paddingHorizontal: 10 },
-  row: { justifyContent: "space-between", paddingHorizontal: 10, marginBottom: 20 },
-  movieCard: { width: "47%", backgroundColor: "#2D3748", borderRadius: 12, overflow: "hidden" },
+  row: {
+    justifyContent: "space-between",
+    paddingHorizontal: 10,
+    marginBottom: 20,
+  },
+  movieCard: {
+    width: "47%",
+    backgroundColor: "#2D3748",
+    borderRadius: 12,
+    overflow: "hidden",
+  },
   posterContainer: { width: "100%", height: 220, position: "relative" },
   poster: { width: "100%", height: "100%", resizeMode: "cover" },
-  ageTag: { position: "absolute", top: 8, right: 8, backgroundColor: "#E53E3E", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  ageTag: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "#E53E3E",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
   ageTagText: { color: "#FFF", fontSize: 10, fontWeight: "bold" },
   movieInfo: { padding: 12 },
-  movieTitle: { color: "#FFF", fontSize: 15, fontWeight: "bold", marginBottom: 4 },
+  movieTitle: {
+    color: "#FFF",
+    fontSize: 15,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
   movieGenre: { color: "#A0AEC0", fontSize: 12, marginBottom: 8 },
   ratingContainer: { flexDirection: "row", alignItems: "center" },
   ratingStar: { fontSize: 12, marginRight: 4 },

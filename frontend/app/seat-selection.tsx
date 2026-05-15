@@ -1,3 +1,4 @@
+import axiosClient from "@/utils/axiosClient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -9,15 +10,16 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-// Gọi Trạm thu phí Axios
-import axiosClient from "@/utils/axiosClient";
 
 interface Seat {
   id: number;
-  rowName: string;
+  rowName: string | null;
   seatNumber: number;
   type: string;
   isBooked: boolean;
+  gridRow: number;
+  gridColumn: number;
+  isActive: boolean;
 }
 
 export default function SeatSelectionScreen() {
@@ -35,25 +37,39 @@ export default function SeatSelectionScreen() {
   const [selectedSeatIds, setSelectedSeatIds] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // 👇 STATE QUẢN LÝ MỨC ĐỘ ZOOM 👇
+  const [zoom, setZoom] = useState(1);
+
   useEffect(() => {
     const fetchSeats = async () => {
       try {
-        // 1. Dùng axiosClient gọn gàng
         const response = await axiosClient.get(`/Seats/showtime/${showtimeId}`);
 
-        // 2. Phiên dịch dữ liệu từ Backend (C#) sang ngôn ngữ Frontend (React)
         const mappedSeats: Seat[] = response.data.map((s: any) => {
           let typeStr = "Normal";
           if (s.type === 1) typeStr = "VIP";
           else if (s.type === 2) typeStr = "Couple";
-          else if (s.type === 3) typeStr = "Empty"; 
+          else if (s.type === 3) typeStr = "Empty";
 
           return {
             id: s.id,
-            rowName: s.row, 
-            seatNumber: s.number, 
-            type: typeStr, 
+            rowName:
+              s.rowName !== undefined
+                ? s.rowName
+                : s.row !== undefined
+                  ? s.row
+                  : null,
+            seatNumber:
+              s.seatNumber !== undefined
+                ? s.seatNumber
+                : s.number !== undefined
+                  ? s.number
+                  : 0,
+            type: typeStr,
             isBooked: s.isBooked,
+            gridRow: s.gridRow !== undefined ? s.gridRow : 0,
+            gridColumn: s.gridColumn !== undefined ? s.gridColumn : 0,
+            isActive: s.isActive !== undefined ? s.isActive : true,
           };
         });
 
@@ -68,20 +84,17 @@ export default function SeatSelectionScreen() {
     fetchSeats();
   }, [showtimeId]);
 
-  // Biến thông minh nhận diện phòng có cầu thang/lối đi hay không
-  const hasWalkway = seats.some((s) => s.type === "Empty");
-
-  const groupedSeats = seats.reduce(
+  const groupedByGridRow = seats.reduce(
     (acc, seat) => {
-      if (!acc[seat.rowName]) acc[seat.rowName] = [];
-      acc[seat.rowName].push(seat);
+      if (!acc[seat.gridRow]) acc[seat.gridRow] = [];
+      acc[seat.gridRow].push(seat);
       return acc;
     },
-    {} as Record<string, Seat[]>,
+    {} as Record<number, Seat[]>,
   );
 
   const toggleSeatSelection = (seat: Seat) => {
-    if (seat.isBooked || seat.type === "Empty") return;
+    if (seat.isBooked || seat.type === "Empty" || !seat.isActive) return;
 
     setSelectedSeatIds((prevIds) => {
       if (prevIds.includes(seat.id)) {
@@ -103,17 +116,18 @@ export default function SeatSelectionScreen() {
   const handleContinue = () => {
     let isInvalid = false;
     let errorMsg = "";
-    const rowNames = Object.keys(groupedSeats);
+    const rowIndexes = Object.keys(groupedByGridRow);
 
-    for (const rowName of rowNames) {
-      const isCoupleRow = groupedSeats[rowName].some(
+    for (const rIndex of rowIndexes) {
+      const rowNum = parseInt(rIndex);
+      const isCoupleRow = groupedByGridRow[rowNum].some(
         (s) => s.type === "Couple",
       );
       if (isCoupleRow) continue;
 
-      const validSeatsInRow = [...groupedSeats[rowName]]
-        .filter((s) => s.type !== "Empty")
-        .sort((a, b) => a.seatNumber - b.seatNumber);
+      const validSeatsInRow = [...groupedByGridRow[rowNum]]
+        .filter((s) => s.type !== "Empty" && s.isActive)
+        .sort((a, b) => a.gridColumn - b.gridColumn);
 
       for (let i = 0; i < validSeatsInRow.length; i++) {
         const currentSeat = validSeatsInRow[i];
@@ -135,7 +149,7 @@ export default function SeatSelectionScreen() {
 
           if (isLeftOccupied && isRightOccupied) {
             isInvalid = true;
-            errorMsg = `Hàng ${rowName} có ghế trống số ${currentSeat.seatNumber} bị cô lập. Vui lòng không để trống đúng 1 ghế.`;
+            errorMsg = `Hàng ${currentSeat.rowName} có ghế trống số ${currentSeat.seatNumber} bị cô lập. Vui lòng không để trống đúng 1 ghế.`;
             break;
           }
         }
@@ -150,14 +164,11 @@ export default function SeatSelectionScreen() {
 
     const proceedToConcessions = () => {
       router.push({
-        // 1. Chỉnh lại đường dẫn cho đúng thư mục movie
         pathname: "/movie/concessions" as any,
         params: {
           showtimeId: showtimeId,
           movieTitle: movieTitle,
-          // 2. Chuyển mảng ID ghế thành chuỗi để truyền qua params
           selectedSeats: JSON.stringify(selectedSeatIds),
-          // 3. Gửi tổng tiền ghế sang để tính tổng cuối cùng
           total: totalPrice,
           posterUrl: posterUrl,
           roomName: roomName,
@@ -166,9 +177,7 @@ export default function SeatSelectionScreen() {
       });
     };
 
-    // Cảnh báo độ tuổi
     const ageString = ageRestriction as string;
-
     if (
       ageString &&
       ageString !== "P" &&
@@ -177,7 +186,7 @@ export default function SeatSelectionScreen() {
     ) {
       Alert.alert(
         "Cảnh báo độ tuổi",
-        `Bộ phim này có quy định độ tuổi: ${ageString}.\n\nRạp sẽ kiểm tra giấy tờ tùy thân khi bạn nhận vé. Bạn có chắc chắn mình đã đủ tuổi?`,
+        `Bộ phim này có quy định độ tuổi: ${ageString}.\n\nRạp sẽ kiểm tra giấy tờ tùy thân. Bạn đã đủ tuổi?`,
         [
           { text: "Quay lại", style: "cancel" },
           {
@@ -190,6 +199,139 @@ export default function SeatSelectionScreen() {
     } else {
       proceedToConcessions();
     }
+  };
+
+  // 👇 HÀM XỬ LÝ NÚT BẤM ZOOM 👇
+  const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.25, 2)); // Tối đa zoom 2x
+  const handleZoomOut = () => setZoom((prev) => Math.max(prev - 0.25, 0.5)); // Tối thiểu thu nhỏ 0.5x
+
+  const maxRow =
+    seats.length > 0 ? Math.max(...seats.map((s) => s.gridRow)) : 0;
+  const maxCol =
+    seats.length > 0 ? Math.max(...seats.map((s) => s.gridColumn)) : 0;
+
+  const renderSeatMatrix = () => {
+    let matrixUI = [];
+
+    // 👇 TÍNH TOÁN KÍCH THƯỚC ĐỘNG DỰA TRÊN ZOOM 👇
+    const seatW = 32 * zoom;
+    const coupleW = 72 * zoom;
+    const marginH = 4 * zoom;
+    const fontS = 10 * zoom;
+    const iconS = 8 * zoom;
+    const radius = 6 * zoom;
+    const labelW = 25 * zoom;
+    const labelFontS = 14 * zoom;
+    const rowMarginB = 8 * zoom;
+
+    for (let r = 0; r <= maxRow; r++) {
+      const rowSeats = seats.filter((s) => s.gridRow === r);
+      if (rowSeats.length === 0) continue;
+
+      const realSeat = rowSeats.find((s) => s.rowName);
+      const rowLabel = realSeat ? realSeat.rowName : "";
+
+      let rowColumnsUI = [];
+
+      for (let c = 0; c <= maxCol; c++) {
+        const seat = rowSeats.find((s) => s.gridColumn === c);
+
+        if (!seat || seat.type === "Empty") {
+          rowColumnsUI.push(
+            <View
+              key={`empty-${r}-${c}`}
+              style={{ width: seatW, height: seatW, marginHorizontal: marginH }}
+            />,
+          );
+          continue;
+        }
+
+        const isLocked = !seat.isActive;
+        const isSelected = selectedSeatIds.includes(seat.id);
+        const isOccupied = seat.isBooked;
+        const isVip = seat.type === "VIP";
+        const isCouple = seat.type === "Couple";
+
+        rowColumnsUI.push(
+          <TouchableOpacity
+            key={seat.id}
+            activeOpacity={0.7}
+            disabled={isLocked || isOccupied}
+            onPress={() => toggleSeatSelection(seat)}
+            style={[
+              styles.seatCell,
+              {
+                width: seatW,
+                height: seatW,
+                marginHorizontal: marginH,
+                borderRadius: radius,
+              },
+              isVip && styles.seatVip,
+              isCouple && {
+                width: coupleW,
+                backgroundColor: "#805AD5",
+                borderRadius: radius,
+              },
+              isOccupied && styles.seatBooked,
+              isLocked && styles.seatLocked,
+              isSelected && styles.seatSelected,
+            ]}
+          >
+            <Text
+              style={[
+                { fontSize: fontS, fontWeight: "bold", color: "#4A5568" },
+                (isOccupied || isSelected || isCouple || isLocked || isVip) && {
+                  color: "#FFF",
+                },
+              ]}
+            >
+              {seat.rowName}
+              {seat.seatNumber}
+            </Text>
+            {isVip && !isSelected && !isOccupied && !isLocked && (
+              <Text
+                style={[
+                  styles.iconStar,
+                  { fontSize: iconS, bottom: -2 * zoom },
+                ]}
+              >
+                ☆
+              </Text>
+            )}
+            {isCouple && !isSelected && !isOccupied && !isLocked && (
+              <Text
+                style={[
+                  styles.iconHeart,
+                  { fontSize: iconS, bottom: -2 * zoom },
+                ]}
+              >
+                ♡
+              </Text>
+            )}
+          </TouchableOpacity>,
+        );
+      }
+
+      matrixUI.push(
+        <View
+          key={`matrixRow-${r}`}
+          style={[styles.matrixRow, { marginBottom: rowMarginB }]}
+        >
+          <View
+            style={[
+              styles.rowLabelBox,
+              { width: labelW, marginRight: 10 * zoom },
+            ]}
+          >
+            <Text style={[styles.rowLabelText, { fontSize: labelFontS }]}>
+              {rowLabel}
+            </Text>
+          </View>
+          {rowColumnsUI}
+        </View>,
+      );
+    }
+    return matrixUI;
   };
 
   if (isLoading) {
@@ -222,134 +364,51 @@ export default function SeatSelectionScreen() {
           <Text style={styles.screenText}>MÀN HÌNH</Text>
         </View>
 
-        <View style={styles.matrixContainer}>
-          {Object.keys(groupedSeats).map((rowName) => {
-            const isCoupleRow = groupedSeats[rowName].some(
-              (s) => s.type === "Couple",
-            );
-
-            return (
-              <View key={rowName} style={styles.rowContainer}>
-                <Text style={styles.rowLabel}>
-                  {isCoupleRow ? "Couple" : rowName}
-                </Text>
-
-                <View
-                  style={[
-                    styles.seatsRow,
-                    isCoupleRow && [
-                      styles.coupleRowStyle,
-                      { justifyContent: "center" },
-                    ],
-                  ]}
-                >
-                  {(() => {
-                    const sortedSeats = [...groupedSeats[rowName]].sort(
-                      (a, b) => a.id - b.id,
-                    );
-                    const visibleSeats = sortedSeats.filter(
-                      (s) => s.type !== "Empty",
-                    );
-
-                    return sortedSeats.map((seat) => {
-                      if (seat.type === "Empty") {
-                        return (
-                          <View
-                            key={seat.id}
-                            style={[
-                              styles.seat,
-                              { backgroundColor: "transparent" }, //biến ghế empty thành trong suốt
-                            ]}
-                          />
-                        );
-                      }
-
-                      const isSelected = selectedSeatIds.includes(seat.id);
-                      const isVip = seat.type === "VIP";
-                      const isCouple = seat.type === "Couple";
-
-                      const dynamicSeatNumber =
-                        visibleSeats.findIndex((s) => s.id === seat.id) + 1;
-
-                      return (
-                        <TouchableOpacity
-                          key={seat.id}
-                          activeOpacity={0.7}
-                          onPress={() => toggleSeatSelection(seat)}
-                          style={[
-                            styles.seat,
-                            isVip && styles.seatVip,
-                            isCouple && styles.seatCouple,
-                            seat.isBooked && styles.seatBooked,
-                            isSelected && styles.seatSelected,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.seatText,
-                              (seat.isBooked || isSelected || isCouple) && {
-                                color: "#FFF",
-                              },
-                            ]}
-                          >
-                            {rowName}
-                            {dynamicSeatNumber}
-                          </Text>
-                          {isVip && !isSelected && !seat.isBooked && (
-                            <Text style={styles.iconStar}>☆</Text>
-                          )}
-                          {isCouple && !isSelected && !seat.isBooked && (
-                            <Text style={styles.iconHeart}>♡</Text>
-                          )}
-                        </TouchableOpacity>
-                      );
-                    });
-                  })()}
-                </View>
-              </View>
-            );
-          })}
-        </View>
+        <ScrollView horizontal showsHorizontalScrollIndicator={true}>
+          <View style={styles.matrixContainer}>{renderSeatMatrix()}</View>
+        </ScrollView>
 
         <View style={styles.legendContainer}>
           <View style={styles.legendItem}>
-            <View
-              style={[styles.seat, { width: 16, height: 16, borderRadius: 3 }]}
-            />
+            <View style={[styles.seatLegend, { backgroundColor: "#E2E8F0" }]} />
             <Text style={styles.legendText}>Thường</Text>
           </View>
           <View style={styles.legendItem}>
-            <View
-              style={[
-                styles.seat,
-                styles.seatVip,
-                { width: 16, height: 16, borderRadius: 3 },
-              ]}
-            />
+            <View style={[styles.seatLegend, styles.seatVip]} />
             <Text style={styles.legendText}>VIP</Text>
           </View>
           <View style={styles.legendItem}>
             <View
               style={[
-                styles.seat,
-                styles.seatCouple,
-                { width: 30, height: 16, borderRadius: 3 },
+                styles.seatLegend,
+                { backgroundColor: "#805AD5", width: 30 },
               ]}
             />
             <Text style={styles.legendText}>Couple</Text>
           </View>
           <View style={styles.legendItem}>
-            <View
-              style={[
-                styles.seat,
-                styles.seatSelected,
-                { width: 16, height: 16, borderRadius: 3 },
-              ]}
-            />
-            <Text style={styles.legendText}>Chọn</Text>
+            <View style={[styles.seatLegend, styles.seatSelected]} />
+            <Text style={styles.legendText}>Đang chọn</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.seatLegend, styles.seatLocked]} />
+            <Text style={styles.legendText}>Bảo trì</Text>
           </View>
         </View>
       </ScrollView>
+
+      {/* 👇 THANH ĐIỀU KHIỂN ZOOM (FLOATING) 👇 */}
+      <View style={styles.zoomControls}>
+        <TouchableOpacity style={styles.zoomBtn} onPress={handleZoomIn}>
+          <Text style={styles.zoomBtnText}>+</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.zoomBtn, { borderBottomWidth: 0 }]}
+          onPress={handleZoomOut}
+        >
+          <Text style={styles.zoomBtnText}>−</Text>
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.footer}>
         <View style={styles.priceContainer}>
@@ -388,7 +447,7 @@ const styles = StyleSheet.create({
   headerTitleContainer: { flex: 1, alignItems: "center", marginRight: 30 },
   movieTitle: { fontSize: 18, fontWeight: "bold", color: "#FFF" },
   scrollContent: { paddingBottom: 120 },
-  screenContainer: { alignItems: "center", marginTop: 20, marginBottom: 40 },
+  screenContainer: { alignItems: "center", marginTop: 20, marginBottom: 30 },
   screenCurve: {
     width: "80%",
     height: 30,
@@ -405,47 +464,85 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     fontWeight: "bold",
   },
-  matrixContainer: { paddingHorizontal: 5 },
-  rowContainer: {
+
+  matrixContainer: {
+    paddingHorizontal: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: "100%",
+  },
+  matrixRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 10,
-    paddingLeft: 55,
   },
-  rowLabel: {
-    position: "absolute",
-    left: 0,
-    color: "#A0AEC0",
-    fontSize: 12,
+  rowLabelBox: {
+    alignItems: "center",
+  },
+  rowLabelText: {
+    color: "#FFF",
     fontWeight: "bold",
-    width: 55,
-    textAlign: "center",
   },
-  seatsRow: { flex: 1, flexDirection: "row", justifyContent: "space-between" },
-  coupleRowStyle: { gap: 10 },
-  seat: {
-    width: 22,
-    height: 22,
+  seatCell: {
     backgroundColor: "#E2E8F0",
-    borderRadius: 4,
     justifyContent: "center",
     alignItems: "center",
   },
   seatVip: { backgroundColor: "#ED8936" },
-  seatCouple: { width: 50, backgroundColor: "#805AD5", borderRadius: 6 },
   seatSelected: { backgroundColor: "#E53E3E" },
   seatBooked: { backgroundColor: "#718096", opacity: 0.6 },
-  seatText: { fontSize: 8, fontWeight: "bold", color: "#4A5568" },
-  iconStar: { position: "absolute", bottom: -3, fontSize: 6, color: "#FFF" },
-  iconHeart: { position: "absolute", bottom: -3, fontSize: 6, color: "#FFF" },
+  seatLocked: {
+    backgroundColor: "#1A202C",
+    borderColor: "#4A5568",
+    borderWidth: 1,
+    opacity: 0.8,
+  },
+  iconStar: { position: "absolute", color: "#FFF" },
+  iconHeart: { position: "absolute", color: "#FFF" },
+
   legendContainer: {
     flexDirection: "row",
-    justifyContent: "space-evenly",
-    marginTop: 40,
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 15,
+    marginTop: 30,
     paddingHorizontal: 10,
   },
   legendItem: { flexDirection: "row", alignItems: "center" },
+  seatLegend: { width: 16, height: 16, borderRadius: 3 },
   legendText: { color: "#A0AEC0", fontSize: 12, marginLeft: 6 },
+
+  // ==========================================
+  // CSS NÚT ZOOM (MỚI THÊM)
+  // ==========================================
+  zoomControls: {
+    position: "absolute",
+    right: 20,
+    bottom: 120, // Nằm nổi ngay trên Footer
+    backgroundColor: "rgba(45, 55, 72, 0.9)",
+    borderRadius: 8,
+    padding: 2,
+    zIndex: 10,
+    elevation: 5, // Đổ bóng cho Android
+    shadowColor: "#000", // Đổ bóng cho iOS
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  zoomBtn: {
+    width: 40,
+    height: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#1A202C",
+  },
+  zoomBtnText: {
+    color: "#FFF",
+    fontSize: 24,
+    fontWeight: "bold",
+    marginTop: -2, // Căn giữa dấu + và -
+  },
+
   footer: {
     position: "absolute",
     bottom: 0,

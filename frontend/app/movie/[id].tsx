@@ -3,16 +3,16 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    FlatList,
-    Image,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Image,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 // Axios
 import axiosClient from "@/utils/axiosClient";
@@ -59,9 +59,20 @@ export default function MovieDetailScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userData, setUserData] = useState<any>(null);
 
+  // Hàm xử lý ghép link ảnh siêu việt
+  const getImageUrl = (path?: string) => {
+    if (!path) return "https://via.placeholder.com/300x400.png?text=No+Image";
+    // Nếu đã là link web đầy đủ hoặc base64 thì giữ nguyên
+    if (path.startsWith("http") || path.startsWith("data:image")) return path;
+
+    // Nếu là link tương đối (VD: /movietickets/anh.jpg), tự động ghép với IP trong file .env
+    const minioBaseUrl =
+      process.env.EXPO_PUBLIC_MINIO_URL || "http://172.20.10.3:9000";
+    return `${minioBaseUrl}${path}`;
+  };
+
   const fetchMovieDetail = async () => {
     try {
-      // Dùng axiosClient lấy dữ liệu phim, cực kỳ ngắn gọn
       const response = await axiosClient.get(`/Movies/${id}`);
       setMovie(response.data);
     } catch (error) {
@@ -79,7 +90,6 @@ export default function MovieDetailScreen() {
   }, [id]);
 
   const handleLike = async (reviewId: number) => {
-    // 1. Cập nhật giao diện MÀN HÌNH NGAY LẬP TỨC
     setMovie((prevMovie) => {
       if (!prevMovie) return prevMovie;
       return {
@@ -92,7 +102,6 @@ export default function MovieDetailScreen() {
       };
     });
 
-    // Gửi lệnh lưu xuống Backend
     try {
       await axiosClient.post(`/Reviews/${reviewId}/like`);
     } catch (error) {
@@ -151,7 +160,7 @@ export default function MovieDetailScreen() {
 
       Alert.alert("Thành công", "Cảm ơn bạn đã đánh giá bộ phim này!");
       setNewComment("");
-      fetchMovieDetail(); // Load lại để hiện đánh giá mới
+      fetchMovieDetail();
     } catch (error: any) {
       console.error(error);
       const errorMsg =
@@ -189,11 +198,10 @@ export default function MovieDetailScreen() {
 
       <ScrollView contentContainerStyle={{ paddingBottom: 100 }}>
         <View style={styles.posterContainer}>
+          {/* ĐÃ BỌC HÀM GETIMAGEURL CHO ẢNH BÌA PHIM */}
           <Image
             source={{
-              uri:
-                movie.posterUrl ||
-                "https://via.placeholder.com/300x400.png?text=No+Image",
+              uri: getImageUrl(movie.posterUrl),
             }}
             style={styles.poster}
           />
@@ -240,8 +248,9 @@ export default function MovieDetailScreen() {
                 keyExtractor={(item) => item.id.toString()}
                 renderItem={({ item }) => (
                   <View style={styles.actorCard}>
+                    {/* ĐÃ BỌC HÀM GETIMAGEURL CHO ẢNH DIỄN VIÊN */}
                     <Image
-                      source={{ uri: item.avatarUrl }}
+                      source={{ uri: getImageUrl(item.avatarUrl) }}
                       style={styles.actorImage}
                     />
                     <Text style={styles.actorName} numberOfLines={2}>

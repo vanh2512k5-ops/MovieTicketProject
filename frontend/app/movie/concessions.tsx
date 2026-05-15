@@ -23,7 +23,7 @@ interface Combo {
 
 export default function ConcessionsScreen() {
   const router = useRouter();
-  
+
   const {
     showtimeId,
     movieTitle,
@@ -38,7 +38,17 @@ export default function ConcessionsScreen() {
   const [quantities, setQuantities] = useState<{ [key: number]: number }>({});
   const [isLoading, setIsLoading] = useState(true);
 
-  // ĐÃ SỬA: Dùng axios thay vì fetch
+  // 👇 HÀM XỬ LÝ GHÉP LINK ẢNH MINIO 👇
+  const getImageUrl = (path?: string) => {
+    if (!path) return "https://via.placeholder.com/150x150.png?text=No+Image";
+    if (path.startsWith("http") || path.startsWith("data:image")) return path;
+
+    // Gọi IP MinIO từ file .env
+    const minioBaseUrl =
+      process.env.EXPO_PUBLIC_MINIO_URL || "http://172.20.10.3:9000";
+    return `${minioBaseUrl}${path}`;
+  };
+
   useEffect(() => {
     const fetchCombos = async () => {
       try {
@@ -60,7 +70,7 @@ export default function ConcessionsScreen() {
     setQuantities((prev) => {
       const currentVal = prev[id] || 0;
       const newVal = currentVal + delta;
-      if (newVal < 0) return prev; 
+      if (newVal < 0) return prev;
       return { ...prev, [id]: newVal };
     });
   };
@@ -76,7 +86,11 @@ export default function ConcessionsScreen() {
     const qty = quantities[item.id] || 0;
     return (
       <View style={styles.comboCard}>
-        <Image source={{ uri: item.imageUrl }} style={styles.comboImage} />
+        {/* 👇 ĐÃ BỌC HÀM GETIMAGEURL VÀO ĐÂY 👇 */}
+        <Image
+          source={{ uri: getImageUrl(item.imageUrl) }}
+          style={styles.comboImage}
+        />
         <View style={styles.comboInfo}>
           <Text style={styles.comboName}>{item.name}</Text>
           <Text style={styles.comboDesc} numberOfLines={2}>
@@ -152,12 +166,12 @@ export default function ConcessionsScreen() {
               params: {
                 showtimeId,
                 movieTitle,
-                selectedSeats, 
+                selectedSeats,
                 combosData: JSON.stringify(quantities),
                 total: finalTotal,
-                posterUrl, 
-                roomName, 
-                startTime, 
+                posterUrl,
+                roomName,
+                startTime,
               },
             });
           }}
