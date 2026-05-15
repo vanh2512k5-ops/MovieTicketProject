@@ -59,8 +59,8 @@ namespace MovieTicketAPI.Controllers
                     seats.Add(new Seat
                     {
                         RoomId = room.Id,
-                        Row = currentRow,
-                        Number = num,
+                        RowName = currentRow,
+                        SeatNumber = num,
                         Type = SeatType.Normal // Mặc định là ghế thường
                     });
                 }

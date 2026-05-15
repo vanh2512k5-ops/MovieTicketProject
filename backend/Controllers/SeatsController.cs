@@ -25,7 +25,7 @@ namespace MovieTicketAPI.Controllers
             // 2. Lấy toàn bộ ghế của Phòng đó
             var allSeats = await _context.Seats
                 .Where(s => s.RoomId == showtime.RoomId)
-                .OrderBy(s => s.Row).ThenBy(s => s.Number)
+                .OrderBy(s => s.RowName).ThenBy(s => s.SeatNumber)
                 .ToListAsync();
 
             // 3. Tìm các ghế ĐÃ BỊ ĐẶT trong suất chiếu này
@@ -40,10 +40,15 @@ namespace MovieTicketAPI.Controllers
             var result = allSeats.Select(s => new
             {
                 id = s.Id,
-                row = s.Row,
-                number = s.Number,
+                row = s.RowName,
+                number = s.SeatNumber,
                 type = (int)s.Type, // 0: Normal, 1: VIP
-                isBooked = bookedSeatIds.Contains(s.Id)
+                isBooked = bookedSeatIds.Contains(s.Id),
+                 
+                gridRow = s.GridRow,
+                gridColumn = s.GridColumn,
+                isActive = s.IsActive
+
             }).ToList();
 
             return Ok(result);
