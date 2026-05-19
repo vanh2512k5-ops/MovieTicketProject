@@ -201,14 +201,6 @@ export default function HomeScreen() {
                 <Text style={styles.adminBtnText}>⚙️ Quản trị</Text>
               </TouchableOpacity>
             )}
-            {isLoggedIn && (
-              <TouchableOpacity
-                style={styles.myTicketBtn}
-                onPress={() => router.push("/my-tickets" as any)}
-              >
-                <Text style={styles.myTicketText}>🎟️ Vé của tôi</Text>
-              </TouchableOpacity>
-            )}
           </View>
         </View>
 
@@ -282,23 +274,23 @@ export default function HomeScreen() {
             style={styles.bannerImage}
           />
         </View>
-
-        <TouchableOpacity
-          style={{
-            backgroundColor: "#38A169",
-            padding: 15,
-            marginHorizontal: 20,
-            marginBottom: 20,
-            borderRadius: 10,
-            alignItems: "center",
-          }}
-          onPress={() => router.push("/admin/room-list" as any)} // Đổi sang room-list
-        >
-          <Text style={{ color: "#FFF", fontWeight: "bold" }}>
-            🛠 QUẢN LÝ PHÒNG CHIẾU (ADMIN)
-          </Text>
-        </TouchableOpacity>
-
+        {userRole === "Admin" && (
+          <TouchableOpacity
+            style={{
+              backgroundColor: "#38A169",
+              padding: 15,
+              marginHorizontal: 20,
+              marginBottom: 20,
+              borderRadius: 10,
+              alignItems: "center",
+            }}
+            onPress={() => router.push("/admin/room-list" as any)} // Đổi sang room-list
+          >
+            <Text style={{ color: "#FFF", fontWeight: "bold" }}>
+              🛠 QUẢN LÝ PHÒNG CHIẾU (ADMIN)
+            </Text>
+          </TouchableOpacity>
+        )}
         <Text style={styles.sectionTitle}>🎬 PHIM ĐANG CHIẾU</Text>
 
         {isLoading ? (
