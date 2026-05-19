@@ -8,6 +8,8 @@
         public string PasswordHash { get; set; } = string.Empty; // Lưu mật khẩu đã mã hóa
         public string? Phone { get; set; }
         public string Role { get; set; } = "User"; // Mặc định là User, sau này có "Admin"
+        
+        public string? AvatarUrl { get; set; } 
 
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
