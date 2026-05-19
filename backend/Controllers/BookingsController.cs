@@ -22,6 +22,9 @@ namespace MovieTicketAPI.Controllers
             public List<int> SeatIds { get; set; } = new List<int>();
         }
 
+        // ==========================================
+        // 1. API TẠO VÉ MỚI 
+        // ==========================================
         [HttpPost]
         public async Task<IActionResult> CreateBooking([FromBody] CreateBookingRequest request)
         {
@@ -69,6 +72,43 @@ namespace MovieTicketAPI.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { Message = "Đặt vé thành công!", BookingId = booking.Id });
+        }
+
+        // ==========================================
+        // 2. API LẤY DANH SÁCH VÉ CỦA TÔI 
+        // ==========================================
+        // GET: api/Bookings/user/5
+        [HttpGet("user/{userId}")]
+        public async Task<IActionResult> GetMyBookings(int userId)
+        {
+            var bookings = await _context.Bookings
+                // Nối các bảng để lấy đủ thông tin: Phim, Rạp, Phòng, Ghế
+                .Include(b => b.Showtime).ThenInclude(s => s.Movie)
+                .Include(b => b.Showtime).ThenInclude(s => s.Room).ThenInclude(r => r.Cinema)
+                .Include(b => b.Tickets).ThenInclude(t => t.Seat)
+                .Where(b => b.UserId == userId)
+                .Select(b => new
+                {
+                    BookingId = b.Id,
+                    MovieTitle = b.Showtime!.Movie!.Title,
+                    PosterUrl = b.Showtime.Movie.PosterUrl,
+                    CinemaName = b.Showtime.Room!.Cinema!.Name,
+                    RoomName = b.Showtime.Room.Name,
+                    ShowTime = b.Showtime.StartTime,
+                    // Ghép RowName (A) và SeatNumber (1) thành tên ghế trực quan (A1)
+                    Seats = b.Tickets.Select(t => t.Seat!.RowName + t.Seat!.SeatNumber.ToString()).ToList(),
+                    Status = b.Status,
+                    TotalPrice = b.TotalPrice
+                })
+                .OrderByDescending(b => b.ShowTime)
+                .ToListAsync();
+
+            if (!bookings.Any())
+            {
+                return NotFound(new { Message = "Bạn chưa có lịch sử đặt vé nào." });
+            }
+
+            return Ok(bookings);
         }
     }
 }
