@@ -117,9 +117,7 @@ namespace MovieTicketAPI.Controllers
                 }
 
                 // Cập nhật link vào Database 
-                // Cấu trúc URL chuẩn: http://[endpoint]/[bucketName]/[fileName]
-                string minioUrl = $"http://{endpoint}/{bucketName}/{fileName}";
-                user.AvatarUrl = minioUrl;
+                user.AvatarUrl = $"/{bucketName}/{fileName}";
                 await _context.SaveChangesAsync();
 
                 return Ok(new { 

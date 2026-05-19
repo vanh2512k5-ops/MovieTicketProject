@@ -1,47 +1,66 @@
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import { useState, useEffect } from 'react';
+import { useRouter, useFocusEffect } from 'expo-router'; // Bổ sung useFocusEffect
+import { useState, useCallback } from 'react'; // Bổ sung useCallback
 import { IconSymbol } from '@/components/ui/icon-symbol';
-import * as ImagePicker from 'expo-image-picker'; // Import thư viện vừa cài
-import axiosClient from '@/utils/axiosClient'; // Import công cụ gọi API của team
+import * as ImagePicker from 'expo-image-picker'; 
+import axiosClient from '@/utils/axiosClient';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [isUploading, setIsUploading] = useState(false);
 
-  useEffect(() => {
-    const loadUser = async () => {
-      const userData = await AsyncStorage.getItem('user');
-      if (userData) {
-        setUser(JSON.parse(userData));
-      }
-    };
-    loadUser();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      const loadUser = async () => {
+        try {
+          const userData = await AsyncStorage.getItem('user');
+          if (userData) {
+            setUser(JSON.parse(userData));
+          } else {
+            setUser(null); // BẮT BUỘC: Reset về null nếu không có data
+          }
+        } catch (error) {
+          console.error("Lỗi khi tải thông tin user:", error);
+        }
+      };
+      loadUser();
+    }, [])
+  );
+
+  // Hàm xử lý link ảnh thông minh
+  const getAvatarUrl = (path?: string) => {
+    if (!path) return "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+    if (path.startsWith("http") || path.startsWith("data:image")) return path;
+    
+    const minioBaseUrl = process.env.EXPO_PUBLIC_MINIO_URL;
+    return `${minioBaseUrl}${path}`;
+  };
 
   // HÀM CHỌN VÀ TẢI ẢNH LÊN SERVER
   const handlePickAvatar = async () => {
-    // 1. Xin quyền truy cập thư viện ảnh
+    if (!user) {
+      Alert.alert("Thông báo", "Vui lòng đăng nhập để đổi ảnh đại diện!");
+      return;
+    }
+
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (permissionResult.granted === false) {
       Alert.alert("Lỗi", "Cần cấp quyền truy cập thư viện ảnh để đổi Avatar!");
       return;
     }
 
-    // 2. Mở thư viện ảnh điện thoại
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [1, 1], // Ép cắt ảnh hình vuông chuẩn Avatar
-      quality: 0.5,   // Nén ảnh giảm dung lượng
+      aspect: [1, 1],
+      quality: 0.5,
     });
 
     if (!result.canceled) {
       setIsUploading(true);
       
-      // 3. Đóng gói file ảnh để gửi đi
       const localUri = result.assets[0].uri;
       const filename = localUri.split('/').pop();
       const match = /\.(\w+)$/.exec(filename || '');
@@ -55,12 +74,10 @@ export default function ProfileScreen() {
       } as any);
 
       try {
-        // 4. Gọi API Backend đẩy lên MinIO
         const response = await axiosClient.post(`/Users/${user.id}/upload-avatar`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
 
-        // 5. Cập nhật Avatar mới vào giao diện và bộ nhớ máy
         const newAvatarUrl = response.data.avatarUrl;
         const updatedUser = { ...user, avatarUrl: newAvatarUrl };
         
@@ -84,6 +101,7 @@ export default function ProfileScreen() {
         style: "destructive", 
         onPress: async () => {
           await AsyncStorage.removeItem('user');
+          setUser(null); // Xóa state ngay lập tức
           router.replace('/login' as any);
         } 
       }
@@ -92,12 +110,10 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      {/* 1. KHU VỰC AVATAR & THÔNG TIN */}
       <View style={styles.headerSection}>
         <View style={styles.avatarContainer}>
           <Image 
-            // Ưu tiên hiển thị ảnh từ DB, nếu không có thì dùng ảnh mặc định
-            source={{ uri: user?.avatarUrl || 'https://cdn-icons-png.flaticon.com/512/149/149071.png' }} 
+            source={{ uri: getAvatarUrl(user?.avatarUrl) }} 
             style={styles.avatar} 
           />
           {isUploading && (
@@ -109,39 +125,45 @@ export default function ProfileScreen() {
             <Text>📷</Text>
           </TouchableOpacity>
         </View>
-        <Text style={styles.userName}>{user?.fullName || 'Khách hàng'}</Text>
-        <Text style={styles.userEmail}>{user?.email || 'Chưa cập nhật email'}</Text>
-        <View style={styles.roleBadge}>
-          <Text style={styles.roleText}>{user?.role === 'Admin' ? '👑 Quản Trị Viên' : '⭐ Thành viên VIP'}</Text>
-        </View>
+        <Text style={styles.userName}>{user?.fullName || 'Khách'}</Text>
+        <Text style={styles.userEmail}>{user?.email || 'Chưa đăng nhập'}</Text>
+        {user && (
+          <View style={styles.roleBadge}>
+            <Text style={styles.roleText}>{user?.role === 'Admin' ? ' Quản Trị Viên' : ' Thành viên VIP'}</Text>
+          </View>
+        )}
       </View>
 
-      {/* 2. KHU VỰC QUẢN LÝ TÀI KHOẢN */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Quản lý tài khoản</Text>
-        <TouchableOpacity style={styles.menuItem}>
-          <Text style={styles.menuText}>📝 Cập nhật thông tin</Text>
+        <TouchableOpacity style={styles.menuItem} onPress={() => !user && Alert.alert("Thông báo", "Vui lòng đăng nhập!")}>
+          <Text style={styles.menuText}>Cập nhật thông tin</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem}>
-          <Text style={styles.menuText}>🔐 Đổi mật khẩu</Text>
+        <TouchableOpacity style={styles.menuItem} onPress={() => !user && Alert.alert("Thông báo", "Vui lòng đăng nhập!")}>
+          <Text style={styles.menuText}> Đổi mật khẩu</Text>
         </TouchableOpacity>
       </View>
 
-      {/* 3. KHU VỰC CÀI ĐẶT */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Cài đặt & Hỗ trợ</Text>
         <TouchableOpacity style={styles.menuItem}>
-          <Text style={styles.menuText}>🎧 Gọi tổng đài CSKH</Text>
+          <Text style={styles.menuText}>Gọi tổng đài CSKH</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.menuItem}>
-          <Text style={styles.menuText}>📜 Điều khoản dịch vụ</Text>
+          <Text style={styles.menuText}>Điều khoản dịch vụ</Text>
         </TouchableOpacity>
       </View>
 
-      {/* 4. NÚT ĐĂNG XUẤT */}
-      <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-        <Text style={styles.logoutBtnText}>🚪 ĐĂNG XUẤT</Text>
-      </TouchableOpacity>
+      {/*  LOGIC NÚT ĐĂNG XUẤT / ĐĂNG NHẬP THÔNG MINH */}
+      {user ? (
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+          <Text style={styles.logoutBtnText}> ĐĂNG XUẤT</Text>
+        </TouchableOpacity>
+      ) : (
+        <TouchableOpacity style={[styles.logoutBtn, { backgroundColor: '#3182CE' }]} onPress={() => router.push('/login' as any)}>
+          <Text style={styles.logoutBtnText}> ĐĂNG NHẬP</Text>
+        </TouchableOpacity>
+      )}
     </ScrollView>
   );
 }

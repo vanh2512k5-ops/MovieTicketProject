@@ -46,16 +46,26 @@ export default function HomeScreen() {
   const [userName, setUserName] = useState("Khách");
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
+  const [userAvatar, setUserAvatar] = useState<string | null>(null); // State chứa ảnh đại diện
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedGenre, setSelectedGenre] = useState("Tất cả");
 
+ // Hàm xử lý link poster phim
   const getImageUrl = (path?: string) => {
     if (!path) return "https://via.placeholder.com/300x450.png?text=No+Image";
     if (path.startsWith("http") || path.startsWith("data:image")) return path;
 
-    const minioBaseUrl =
-      process.env.EXPO_PUBLIC_MINIO_URL || "http://172.20.10.3:9000";
+    const minioBaseUrl = process.env.EXPO_PUBLIC_MINIO_URL;
+    return `${minioBaseUrl}${path}`;
+  };
+
+  // Hàm xử lý link Avatar riêng biệt
+  const getAvatarUrl = (path?: string) => {
+    if (!path) return "https://cdn-icons-png.flaticon.com/512/149/149071.png";
+    if (path.startsWith("http") || path.startsWith("data:image")) return path;
+    
+    const minioBaseUrl = process.env.EXPO_PUBLIC_MINIO_URL;
     return `${minioBaseUrl}${path}`;
   };
 
@@ -67,10 +77,12 @@ export default function HomeScreen() {
         setUserName(user.fullName);
         setIsLoggedIn(true);
         setUserRole(user.role);
+        setUserAvatar(user.avatarUrl); // Lấy link ảnh từ storage
       } else {
         setUserName("Khách");
         setIsLoggedIn(false);
         setUserRole(null);
+        setUserAvatar(null);
       }
     } catch (error) {
       console.error("Lỗi khi đọc session:", error);
@@ -120,7 +132,6 @@ export default function HomeScreen() {
       onPress={() => router.push(`/movie/${item.id}` as any)}
     >
       <View style={styles.posterContainer}>
-        {/* 👇 ĐÃ BỌC HÀM GETIMAGEURL VÀO ĐÂY 👇 */}
         <Image
           source={{
             uri: getImageUrl(item.posterUrl),
@@ -181,7 +192,7 @@ export default function HomeScreen() {
             <Image
               source={{
                 uri: isLoggedIn
-                  ? "https://i.pravatar.cc/100?img=11"
+                  ? getAvatarUrl(userAvatar || undefined) // 👇 Đã tích hợp hàm lấy ảnh động
                   : "https://via.placeholder.com/100x100.png?text=Guest",
               }}
               style={styles.avatar}
@@ -284,7 +295,7 @@ export default function HomeScreen() {
               borderRadius: 10,
               alignItems: "center",
             }}
-            onPress={() => router.push("/admin/room-list" as any)} // Đổi sang room-list
+            onPress={() => router.push("/admin/room-list" as any)}
           >
             <Text style={{ color: "#FFF", fontWeight: "bold" }}>
               🛠 QUẢN LÝ PHÒNG CHIẾU (ADMIN)
