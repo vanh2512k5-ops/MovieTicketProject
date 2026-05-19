@@ -31,14 +31,28 @@ namespace MovieTicketAPI.Controllers
             _context = context;
         }
 
+        // API 1: LƯU SƠ ĐỒ GHẾ 
         [HttpPost("save-layout/{roomId}")]
         public async Task<IActionResult> SaveLayout(int roomId, [FromBody] SaveLayoutRequest request)
         {
             var room = await _context.Rooms.FindAsync(roomId);
-            if (room == null) return NotFound("Không tìm thấy phòng chiếu!");
+            if (room == null) return NotFound(new { message = "Không tìm thấy phòng chiếu!" }); // Sửa lại chuẩn JSON
 
-            // 1. Xóa sạch sơ đồ ghế cũ
+            // 1. Lấy danh sách sơ đồ ghế cũ
             var oldSeats = _context.Seats.Where(s => s.RoomId == roomId);
+
+            // 🛑 THÁO NGÒI NỔ: KIỂM TRA KHÓA NGOẠI (FOREIGN KEY) 🛑
+            // Kiểm tra xem bảng Tickets có vé nào đang trỏ vào các ghế cũ này không
+            // (Lưu ý: Nếu bảng vé của sếp tên là Orders hay Booking thì đổi chữ Tickets nhé)
+            bool hasSoldTickets = await _context.Tickets.AnyAsync(t => oldSeats.Select(s => s.Id).Contains(t.SeatId));
+
+            if (hasSoldTickets)
+            {
+                // Trả về mã lỗi 400 (BadRequest) kèm thông báo chặn đứng Admin
+                return BadRequest(new { message = "⛔ CẢNH BÁO: Phòng này đã có khách mua vé! Không thể thay đổi sơ đồ để tránh lỗi hệ thống." });
+            }
+
+            // Nếu an toàn (chưa có vé), tiến hành xóa sạch để vẽ lại
             _context.Seats.RemoveRange(oldSeats);
 
             var newSeats = new List<Seat>();
@@ -98,6 +112,7 @@ namespace MovieTicketAPI.Controllers
                 {
                     currentRowName++;
                 }
+
             }
 
             _context.Seats.AddRange(newSeats);
@@ -106,6 +121,30 @@ namespace MovieTicketAPI.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { Message = $"Đã lưu Layout. Hướng đánh số: {(request.Direction == "RTL" ? "Phải -> Trái" : "Trái -> Phải")}" });
+        }
+
+        // API 2: LẤY SƠ ĐỒ GHẾ CŨ ĐỂ CHỈNH SỬA
+        [HttpGet("get-layout/{roomId}")]
+        public async Task<IActionResult> GetLayout(int roomId)
+        {
+            // Tìm tất cả các ghế thuộc về phòng này
+            var seats = await _context.Seats.Where(s => s.RoomId == roomId).ToListAsync();
+
+            // Nếu phòng chưa từng được vẽ (trống), trả về mảng rỗng
+            if (!seats.Any())
+            {
+                return Ok(new { cells = new List<object>() });
+            }
+
+            // Nếu đã có, trích xuất đúng tọa độ và trạng thái gửi về cho App tô màu
+            var cells = seats.Select(s => new {
+                gridRow = s.GridRow,
+                gridColumn = s.GridColumn,
+                type = s.Type,
+                isActive = s.IsActive
+            }).ToList();
+
+            return Ok(new { cells });
         }
     }
 }

@@ -24,13 +24,13 @@ namespace MovieTicketAPI.Controllers
             if (await _context.Users.AnyAsync(u => u.Email == request.Email))
                 return BadRequest("Email này đã được sử dụng!");
 
-            // Mã hóa mật khẩu trước khi lưu
+            // Mã hóa mật khẩu và CỐ ĐỊNH quyền là "User"
             var newUser = new User
             {
                 FullName = request.FullName,
                 Email = request.Email,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-                Role = "User"
+                Role = "User" 
             };
 
             _context.Users.Add(newUser);
