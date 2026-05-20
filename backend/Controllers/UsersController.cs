@@ -1,9 +1,14 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MovieTicketAPI.Models;
 using BCrypt.Net;
 using Minio;
 using Minio.DataModel.Args;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
 
 namespace MovieTicketAPI.Controllers
 {
@@ -12,7 +17,7 @@ namespace MovieTicketAPI.Controllers
     public class UsersController : ControllerBase
     {
         private readonly MovieTicketContext _context;
-        private readonly IConfiguration _config; // Thêm Config để đọc thông tin MinIO
+        private readonly IConfiguration _config;
 
         public UsersController(MovieTicketContext context, IConfiguration config)
         {
@@ -20,21 +25,19 @@ namespace MovieTicketAPI.Controllers
             _config = config;
         }
 
-        // 1. ĐĂNG KÝ (Register)
+        // 1. ĐĂNG KÝ 
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] UserRegisterDto request)
         {
-            // Kiểm tra email đã tồn tại chưa
             if (await _context.Users.AnyAsync(u => u.Email == request.Email))
                 return BadRequest("Email này đã được sử dụng!");
 
-            // Mã hóa mật khẩu và CỐ ĐỊNH quyền là "User"
             var newUser = new User
             {
                 FullName = request.FullName,
                 Email = request.Email,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-                Role = "User" 
+                Role = "User"
             };
 
             _context.Users.Add(newUser);
@@ -43,36 +46,142 @@ namespace MovieTicketAPI.Controllers
             return Ok(new { Message = "Đăng ký thành công!" });
         }
 
-        // 2. ĐĂNG NHẬP (Login)
+        // 2. ĐĂNG NHẬP 
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] UserLoginDto request)
         {
+            // Tìm user theo email
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
 
+            // Sai email hoặc mật khẩu
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-            {
                 return BadRequest("Email hoặc mật khẩu không chính xác!");
-            }
 
-            // Tạm thời trả về thông tin user (BỔ SUNG AvatarUrl để App load ảnh ngay lúc login)
+            //  TẠO TOKEN 
+
+            // Lấy khóa bí mật từ appsettings.json
+            var key = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(_config["Jwt:Key"]!)
+            );
+
+            // "Claims" = thông tin nhét vào bên trong token
+            var claims = new[]
+            {
+                new Claim("id", user.Id.ToString()),       // ID của user
+                new Claim("email", user.Email),            // Email
+                new Claim(ClaimTypes.Role, user.Role),     // Quyền (User/Admin) — dùng ClaimTypes.Role để [Authorize(Roles)] hoạt động
+            };
+
+            // Tạo Access Token — hết hạn sau 60 phút
+            var accessToken = new JwtSecurityToken(
+                issuer: _config["Jwt:Issuer"],
+                audience: _config["Jwt:Audience"],
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(
+                    double.Parse(_config["Jwt:ExpiresInMinutes"]!)
+                ),
+                signingCredentials: new SigningCredentials(
+                    key, SecurityAlgorithms.HmacSha256
+                )
+            );
+
+            // Tạo Refresh Token — hết hạn sau 7 ngày
+            var refreshToken = new JwtSecurityToken(
+                issuer: _config["Jwt:Issuer"],
+                audience: _config["Jwt:Audience"],
+                expires: DateTime.UtcNow.AddDays(
+                    double.Parse(_config["Jwt:RefreshTokenExpiresInDays"]!)
+                ),
+                signingCredentials: new SigningCredentials(
+                    key, SecurityAlgorithms.HmacSha256
+                )
+            );
+
+            // Chuyển token từ object sang chuỗi để gửi về
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var accessTokenString = tokenHandler.WriteToken(accessToken);
+            var refreshTokenString = tokenHandler.WriteToken(refreshToken);
+
+            // TRẢ VỀ CÓ THÊM TOKEN
             return Ok(new
             {
                 Message = "Đăng nhập thành công!",
-                User = new { user.Id, user.FullName, user.Email, user.Role, user.AvatarUrl }
+                User = new
+                {
+                    user.Id,
+                    user.FullName,
+                    user.Email,
+                    user.Role,
+                    user.AvatarUrl
+                },
+                AccessToken = accessTokenString,   // Token dùng hàng ngày (60 phút)
+                RefreshToken = refreshTokenString  // Token để xin cái mới (7 ngày)
             });
         }
 
+        // 3. LÀM MỚI TOKEN — Khi Access Token hết hạn
+        [HttpPost("refresh-token")]
+        public IActionResult RefreshToken([FromBody] RefreshTokenDto request)
+        {
+            try
+            {
+                // Kiểm tra Refresh Token có hợp lệ không
+                var tokenHandler = new JwtSecurityTokenHandler();
+                var key = Encoding.UTF8.GetBytes(_config["Jwt:Key"]!);
+
+                tokenHandler.ValidateToken(
+                    request.RefreshToken,
+                    new TokenValidationParameters
+                    {
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey = new SymmetricSecurityKey(key),
+                        ValidateIssuer = true,
+                        ValidIssuer = _config["Jwt:Issuer"],
+                        ValidateAudience = true,
+                        ValidAudience = _config["Jwt:Audience"],
+                        ValidateLifetime = true  // Kiểm tra hết hạn chưa
+                    },
+                    out SecurityToken validatedToken
+                );
+
+                // Refresh Token còn hợp lệ → Tạo Access Token mới
+                var newAccessToken = new JwtSecurityToken(
+                    issuer: _config["Jwt:Issuer"],
+                    audience: _config["Jwt:Audience"],
+                    expires: DateTime.UtcNow.AddMinutes(
+                        double.Parse(_config["Jwt:ExpiresInMinutes"]!)
+                    ),
+                    signingCredentials: new SigningCredentials(
+                        new SymmetricSecurityKey(key),
+                        SecurityAlgorithms.HmacSha256
+                    )
+                );
+
+                return Ok(new
+                {
+                    // Trả về Access Token mới
+                    AccessToken = tokenHandler.WriteToken(newAccessToken)
+                });
+            }
+            catch
+            {
+                // Refresh Token hết hạn hoặc không hợp lệ → bắt đăng nhập lại
+                return Unauthorized(new { Message = "Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại!" });
+            }
+        }
+
         // 3. API TẢI ẢNH ĐẠI DIỆN LÊN MINIO
+        [Authorize]
         [HttpPost("{id}/upload-avatar")]
         public async Task<IActionResult> UploadAvatar(int id, IFormFile file)
         {
             try
             {
                 var user = await _context.Users.FindAsync(id);
-                if (user == null) 
+                if (user == null)
                     return NotFound(new { message = "Không tìm thấy tài khoản!" });
 
-                if (file == null || file.Length == 0) 
+                if (file == null || file.Length == 0)
                     return BadRequest(new { message = "Vui lòng chọn một bức ảnh hợp lệ!" });
 
                 // Kiểm tra đuôi file
@@ -112,7 +221,7 @@ namespace MovieTicketAPI.Controllers
                         .WithStreamData(stream)
                         .WithObjectSize(file.Length)
                         .WithContentType(file.ContentType);
-                    
+
                     await minioClient.PutObjectAsync(putObjectArgs);
                 }
 
@@ -120,9 +229,10 @@ namespace MovieTicketAPI.Controllers
                 user.AvatarUrl = $"/{bucketName}/{fileName}";
                 await _context.SaveChangesAsync();
 
-                return Ok(new { 
-                    message = "Cập nhật ảnh đại diện thành công!", 
-                    avatarUrl = user.AvatarUrl 
+                return Ok(new
+                {
+                    message = "Cập nhật ảnh đại diện thành công!",
+                    avatarUrl = user.AvatarUrl
                 });
             }
             catch (Exception ex)
@@ -144,5 +254,10 @@ namespace MovieTicketAPI.Controllers
     {
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+    }
+    // DTO MỚI — nhận Refresh Token từ frontend
+    public class RefreshTokenDto
+    {
+        public string RefreshToken { get; set; } = string.Empty;
     }
 }

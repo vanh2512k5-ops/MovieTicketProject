@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MovieTicketAPI.Models;
 
@@ -16,6 +17,7 @@ namespace MovieTicketAPI.Controllers
         }
 
         // GET: api/rooms
+        [Authorize(Roles = "Admin")]
         [HttpGet]
         public async Task<IActionResult> GetRooms()
         {
@@ -32,6 +34,7 @@ namespace MovieTicketAPI.Controllers
         }
 
         // POST: api/rooms/create-with-seats
+        [Authorize(Roles = "Admin")]
         [HttpPost("create-with-seats")]
         public async Task<IActionResult> CreateRoomWithSeats([FromBody] CreateRoomRequest request)
         {

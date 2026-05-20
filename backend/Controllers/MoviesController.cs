@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Minio;
 using Minio.DataModel.Args;
@@ -60,6 +61,7 @@ namespace MovieTicketAPI.Controllers
             return Ok(movie);
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<IActionResult> CreateMovie([FromBody] Movie movie)
         {
@@ -68,6 +70,7 @@ namespace MovieTicketAPI.Controllers
             return CreatedAtAction(nameof(GetMovieById), new { id = movie.Id }, movie);
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPost("../Reviews")]
         public async Task<IActionResult> PostReview([FromBody] Review review)
         {
@@ -76,7 +79,8 @@ namespace MovieTicketAPI.Controllers
             return Ok(review);
         }
 
-        // 6. NÉN ẢNH VÀ UPLOAD LÊN MINIO 
+        // 6. NÉN ẢNH VÀ UPLOAD LÊN MINIO
+        [Authorize(Roles = "Admin")]
         [HttpPost("{id}/upload-poster")]
         public async Task<IActionResult> UploadPoster(int id, IFormFile file, [FromServices] IMinioClient minioClient, [FromServices] IConfiguration config)
         {
@@ -119,6 +123,7 @@ namespace MovieTicketAPI.Controllers
         }
 
         // 7. THÊM DIỄN VIÊN KÈM ẢNH \
+        [Authorize(Roles = "Admin")]
         [HttpPost("{movieId}/actors")]
         public async Task<IActionResult> AddActor(
             int movieId, [FromForm] string name, [FromForm] string biography, IFormFile file,
@@ -163,7 +168,8 @@ namespace MovieTicketAPI.Controllers
             }
         }
 
-        // 8. HÀM "RỬA ẢNH" TỰ ĐỘNG: WEB LINK -> COMPRESS -> MINIO (LƯU TƯƠNG ĐỐI)
+        // 8. HÀM "RỬa ẢNH" TỰ ĐỘNG: WEB LINK -> COMPRESS -> MINIO (LƯU TƯƠNG ĐỐI)
+        [Authorize(Roles = "Admin")]
         [HttpPost("migrate-actors-to-minio")]
         public async Task<IActionResult> MigrateActorsToMinio([FromServices] IMinioClient minioClient, [FromServices] IConfiguration config)
         {

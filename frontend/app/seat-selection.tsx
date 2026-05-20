@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
+//Khai báo kiểu dữ liệu và trạng thái bảng seat
 interface Seat {
   id: number;
   rowName: string | null;
@@ -36,8 +36,9 @@ export default function SeatSelectionScreen() {
   const [seats, setSeats] = useState<Seat[]>([]);
   const [selectedSeatIds, setSelectedSeatIds] = useState<number[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [showAgeWarning, setShowAgeWarning] = useState(false);
 
-  // 👇 STATE QUẢN LÝ MỨC ĐỘ ZOOM 👇
+  // STATE QUẢN LÝ MỨC ĐỘ ZOOM 
   const [zoom, setZoom] = useState(1);
 
   useEffect(() => {
@@ -83,7 +84,7 @@ export default function SeatSelectionScreen() {
     };
     fetchSeats();
   }, [showtimeId]);
-
+//nhóm ghế , phân loại các loại ghế , ứng dụng trong phần ghế mồ côi
   const groupedByGridRow = seats.reduce(
     (acc, seat) => {
       if (!acc[seat.gridRow]) acc[seat.gridRow] = [];
@@ -113,6 +114,22 @@ export default function SeatSelectionScreen() {
     return total + price;
   }, 0);
 
+  const proceedToConcessions = () => {
+    router.push({
+      pathname: "/movie/concessions" as any,
+      params: {
+        showtimeId: showtimeId,
+        movieTitle: movieTitle,
+        selectedSeats: JSON.stringify(selectedSeatIds),
+        total: totalPrice,
+        posterUrl: posterUrl,
+        roomName: roomName,
+        startTime: startTime,
+      },
+    });
+  };
+
+  //Ko để trống ghế
   const handleContinue = () => {
     let isInvalid = false;
     let errorMsg = "";
@@ -121,21 +138,21 @@ export default function SeatSelectionScreen() {
     for (const rIndex of rowIndexes) {
       const rowNum = parseInt(rIndex);
       const isCoupleRow = groupedByGridRow[rowNum].some(
-        (s) => s.type === "Couple",
+        (s) => s.type === "Couple", //bỏ qua quy tắc cho ghế couple
       );
       if (isCoupleRow) continue;
 
       const validSeatsInRow = [...groupedByGridRow[rowNum]]
         .filter((s) => s.type !== "Empty" && s.isActive)
-        .sort((a, b) => a.gridColumn - b.gridColumn);
+        .sort((a, b) => a.gridColumn - b.gridColumn);//trải thẳng các ghế và duyệt từ trái - phải
 
-      for (let i = 0; i < validSeatsInRow.length; i++) {
+      for (let i = 0; i < validSeatsInRow.length; i++) { 
         const currentSeat = validSeatsInRow[i];
         const isOccupied =
           currentSeat.isBooked || selectedSeatIds.includes(currentSeat.id);
 
         if (!isOccupied) {
-          const isLeftOccupied =
+          const isLeftOccupied =//duyệt ghế i = 0 (bên trái ngoài cùng)
             i === 0
               ? true
               : validSeatsInRow[i - 1].isBooked ||
@@ -162,21 +179,6 @@ export default function SeatSelectionScreen() {
       return;
     }
 
-    const proceedToConcessions = () => {
-      router.push({
-        pathname: "/movie/concessions" as any,
-        params: {
-          showtimeId: showtimeId,
-          movieTitle: movieTitle,
-          selectedSeats: JSON.stringify(selectedSeatIds),
-          total: totalPrice,
-          posterUrl: posterUrl,
-          roomName: roomName,
-          startTime: startTime,
-        },
-      });
-    };
-
     const ageString = ageRestriction as string;
     if (
       ageString &&
@@ -184,45 +186,36 @@ export default function SeatSelectionScreen() {
       ageString !== "Mọi lứa tuổi" &&
       ageString !== "Không"
     ) {
-      Alert.alert(
-        "Cảnh báo độ tuổi",
-        `Bộ phim này có quy định độ tuổi: ${ageString}.\n\nRạp sẽ kiểm tra giấy tờ tùy thân. Bạn đã đủ tuổi?`,
-        [
-          { text: "Quay lại", style: "cancel" },
-          {
-            text: "Tôi đã đủ tuổi",
-            style: "destructive",
-            onPress: proceedToConcessions,
-          },
-        ],
-      );
+      setShowAgeWarning(true);
     } else {
       proceedToConcessions();
     }
   };
 
-  // 👇 HÀM XỬ LÝ NÚT BẤM ZOOM 👇
+  //  HÀM XỬ LÝ NÚT BẤM ZOOM 
   const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.25, 2)); // Tối đa zoom 2x
   const handleZoomOut = () => setZoom((prev) => Math.max(prev - 0.25, 0.5)); // Tối thiểu thu nhỏ 0.5x
+
+
 
   const maxRow =
     seats.length > 0 ? Math.max(...seats.map((s) => s.gridRow)) : 0;
   const maxCol =
     seats.length > 0 ? Math.max(...seats.map((s) => s.gridColumn)) : 0;
 
-  const renderSeatMatrix = () => {
-    let matrixUI = [];
+const renderSeatMatrix = () => {
+  let matrixUI = [];
 
-    // 👇 TÍNH TOÁN KÍCH THƯỚC ĐỘNG DỰA TRÊN ZOOM 👇
-    const seatW = 32 * zoom;
-    const coupleW = 72 * zoom;
-    const marginH = 4 * zoom;
-    const fontS = 10 * zoom;
-    const iconS = 8 * zoom;
-    const radius = 6 * zoom;
-    const labelW = 25 * zoom;
-    const labelFontS = 14 * zoom;
-    const rowMarginB = 8 * zoom;
+  // Tính toán kích thước động dựa trên hệ số zoom
+  const seatW = 32 * zoom;       // Chiều rộng ghế thường
+  const coupleW = 72 * zoom;     // Chiều rộng ghế đôi (bằng 2 ghế thường + khoảng trống)
+  const marginH = 4 * zoom;      // Khoảng cách giữa 2 ghế ngang nhau
+  const fontS = 10 * zoom;       // Cỡ chữ số ghế (1, 2, 3...)
+  const iconS = 8 * zoom;        // Cỡ icon ngôi sao, trái tim
+  const radius = 6 * zoom;       // Độ bo góc của ghế
+  const labelW = 25 * zoom;      // Độ rộng khu vực in chữ cái (A, B, C...)
+  const labelFontS = 14 * zoom;  // Cỡ chữ cái đầu hàng
+  const rowMarginB = 8 * zoom;   // Khoảng cách giữa 2 hàng ngang
 
     for (let r = 0; r <= maxRow; r++) {
       const rowSeats = seats.filter((s) => s.gridRow === r);
@@ -312,6 +305,7 @@ export default function SeatSelectionScreen() {
         );
       }
 
+      
       matrixUI.push(
         <View
           key={`matrixRow-${r}`}
@@ -428,6 +422,32 @@ export default function SeatSelectionScreen() {
           <Text style={styles.checkoutText}>TIẾP TỤC</Text>
         </TouchableOpacity>
       </View>
+
+      {/* BOTTOM SHEET CẢNH BÁO ĐỘ TUỔI */}
+      {showAgeWarning && (
+        <View style={styles.ageWarningOverlay}>
+          <View style={styles.ageWarningContainer}>
+            <Text style={styles.ageWarningTitle}>⚠️ Cảnh báo độ tuổi</Text>
+            <Text style={styles.ageWarningText}>
+              Bộ phim này có quy định độ tuổi: <Text style={{fontWeight: 'bold', color: '#E53E3E'}}>{ageRestriction}</Text>.
+            </Text>
+            <Text style={styles.ageWarningText}>
+              Rạp sẽ kiểm tra giấy tờ tùy thân. Bạn xác nhận mình đã đủ tuổi chứ?
+            </Text>
+            <View style={styles.ageWarningButtons}>
+              <TouchableOpacity style={styles.ageBtnCancel} onPress={() => setShowAgeWarning(false)}>
+                <Text style={styles.ageBtnCancelText}>Quay lại</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.ageBtnConfirm} onPress={() => {
+                setShowAgeWarning(false);
+                proceedToConcessions();
+              }}>
+                <Text style={styles.ageBtnConfirmText}>Tôi đã đủ tuổi</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -566,4 +586,24 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   checkoutText: { color: "#FFF", fontSize: 16, fontWeight: "bold" },
+
+  ageWarningOverlay: {
+    position: 'absolute', top: 0, bottom: 0, left: 0, right: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+    zIndex: 100,
+  },
+  ageWarningContainer: {
+    backgroundColor: '#2D3748',
+    borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: 25,
+    paddingBottom: 40,
+  },
+  ageWarningTitle: { color: '#F6E05E', fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
+  ageWarningText: { color: '#E2E8F0', fontSize: 14, marginBottom: 10, lineHeight: 22 },
+  ageWarningButtons: { flexDirection: 'row', gap: 15, marginTop: 15 },
+  ageBtnCancel: { flex: 1, padding: 12, borderRadius: 8, backgroundColor: '#4A5568', alignItems: 'center' },
+  ageBtnCancelText: { color: '#FFF', fontWeight: 'bold' },
+  ageBtnConfirm: { flex: 1, padding: 12, borderRadius: 8, backgroundColor: '#E53E3E', alignItems: 'center' },
+  ageBtnConfirmText: { color: '#FFF', fontWeight: 'bold' },
 });

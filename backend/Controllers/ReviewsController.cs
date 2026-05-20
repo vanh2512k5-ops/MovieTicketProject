@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MovieTicketAPI.Models;
 using MovieTicketAPI.Services; // 1. Phải có dòng này
@@ -19,6 +20,7 @@ namespace MovieTicketAPI.Controllers
             _movieService = movieService;
         }
 
+        [Authorize]
         [HttpPost]
         public async Task<IActionResult> PostReview([FromBody] Review review)
         {
@@ -35,6 +37,7 @@ namespace MovieTicketAPI.Controllers
             return Ok(review);
         }
 
+        [Authorize]
         [HttpPost("{id}/like")]
         public async Task<IActionResult> LikeReview(int id)
         {

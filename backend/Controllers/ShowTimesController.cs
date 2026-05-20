@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MovieTicketAPI.Models;
 
@@ -58,6 +59,7 @@ namespace MovieTicketAPI.Controllers
             public decimal BasePrice { get; set; }
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpPost]
         public async Task<IActionResult> CreateShowtime([FromBody] CreateShowtimeRequest request)
         {

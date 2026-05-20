@@ -34,6 +34,13 @@ export default function LoginScreen() {
       // Lưu thông tin user vào bộ nhớ máy
       await AsyncStorage.setItem("user", JSON.stringify(data.user));
 
+      // Lưu Access Token — dùng để gắn vào mọi request
+      await AsyncStorage.setItem("accessToken", data.accessToken);
+
+      // Lưu Refresh Token — dùng để xin Access Token mới khi hết hạn
+      await AsyncStorage.setItem("refreshToken", data.refreshToken);
+
+
       Alert.alert("Thành công", `Chào mừng ${data.user.fullName} quay lại!`);
       router.replace("/" as any); 
     } catch (error: any) {

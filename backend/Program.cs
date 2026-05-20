@@ -1,9 +1,28 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using MovieTicketAPI.Models;
 using MovieTicketAPI.Services; // Thêm dòng này để nhận diện thư mục Services
 using Minio;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Cấu hình JWT Authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]!))
+        };
+    });
 
 // 1. Cấu hình CORS - Cho phép mọi nguồn truy cập
 builder.Services.AddCors(options =>
@@ -55,8 +74,13 @@ if (app.Environment.IsDevelopment())
 
 // 2. Kích hoạt CORS 
 app.UseCors("AllowAll");
-
 app.UseHttpsRedirection();
+
+app.UseAuthentication(); // Xác thực: "mày là ai?"
+app.UseAuthorization();  // Phân quyền: "mày được làm gì?"
+
 app.MapControllers();
+
+
 
 app.Run();

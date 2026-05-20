@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MovieTicketAPI.Models;
 
@@ -22,6 +23,7 @@ namespace MovieTicketAPI.Controllers
 
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Roles = "Admin")]
     public class AdminLayoutController : ControllerBase
     {
         private readonly MovieTicketContext _context;
@@ -41,7 +43,7 @@ namespace MovieTicketAPI.Controllers
             // 1. Lấy danh sách sơ đồ ghế cũ
             var oldSeats = _context.Seats.Where(s => s.RoomId == roomId);
 
-            // 🛑 THÁO NGÒI NỔ: KIỂM TRA KHÓA NGOẠI (FOREIGN KEY) 🛑
+            // THÁO NGÒI NỔ: KIỂM TRA KHÓA NGOẠI (FOREIGN KEY) 
             // Kiểm tra xem bảng Tickets có vé nào đang trỏ vào các ghế cũ này không
             // (Lưu ý: Nếu bảng vé của sếp tên là Orders hay Booking thì đổi chữ Tickets nhé)
             bool hasSoldTickets = await _context.Tickets.AnyAsync(t => oldSeats.Select(s => s.Id).Contains(t.SeatId));
@@ -49,7 +51,7 @@ namespace MovieTicketAPI.Controllers
             if (hasSoldTickets)
             {
                 // Trả về mã lỗi 400 (BadRequest) kèm thông báo chặn đứng Admin
-                return BadRequest(new { message = "⛔ CẢNH BÁO: Phòng này đã có khách mua vé! Không thể thay đổi sơ đồ để tránh lỗi hệ thống." });
+                return BadRequest(new { message = " CẢNH BÁO: Phòng này đã có khách mua vé! Không thể thay đổi sơ đồ để tránh lỗi hệ thống." });
             }
 
             // Nếu an toàn (chưa có vé), tiến hành xóa sạch để vẽ lại

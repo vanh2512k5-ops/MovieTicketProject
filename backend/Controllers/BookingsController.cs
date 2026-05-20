@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MovieTicketAPI.Models;
 
@@ -25,6 +26,7 @@ namespace MovieTicketAPI.Controllers
         // ==========================================
         // 1. API TẠO VÉ MỚI 
         // ==========================================
+        [Authorize]
         [HttpPost]
         public async Task<IActionResult> CreateBooking([FromBody] CreateBookingRequest request)
         {
@@ -78,6 +80,7 @@ namespace MovieTicketAPI.Controllers
         // 2. API LẤY DANH SÁCH VÉ CỦA TÔI 
         // ==========================================
         // GET: api/Bookings/user/5
+        [Authorize]
         [HttpGet("user/{userId}")]
         public async Task<IActionResult> GetMyBookings(int userId)
         {
