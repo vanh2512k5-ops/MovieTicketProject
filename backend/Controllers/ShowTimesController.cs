@@ -19,10 +19,11 @@ namespace MovieTicketAPI.Controllers
         [HttpGet("movie/{movieId}")]
         public async Task<IActionResult> GetShowtimes(int movieId)
         {
+            var currentTime = DateTime.Now;
             var showtimes = await _context.Showtimes
                 .Include(s => s.Room)
                     .ThenInclude(r => r.Cinema) // Kéo thông tin Rạp chiếu ra
-                .Where(s => s.MovieId == movieId && s.StartTime > DateTime.Now)
+                .Where(s => s.MovieId == movieId && s.StartTime > currentTime)
                 .OrderBy(s => s.StartTime)
                 .ToListAsync();
 

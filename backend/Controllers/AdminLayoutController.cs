@@ -41,7 +41,8 @@ namespace MovieTicketAPI.Controllers
             if (room == null) return NotFound(new { message = "Không tìm thấy phòng chiếu!" });
 
             // KIỂM TRA LỊCH CHIẾU TƯƠNG LAI & LỊCH CẢI TẠO
-            var hasFutureShowtimes = await _context.Showtimes.AnyAsync(s => s.RoomId == roomId && s.StartTime > DateTime.Now);
+            var currentTime = DateTime.Now;
+            var hasFutureShowtimes = await _context.Showtimes.AnyAsync(s => s.RoomId == roomId && s.StartTime > currentTime);
             
             if (hasFutureShowtimes)
             {
@@ -187,8 +188,9 @@ namespace MovieTicketAPI.Controllers
             var room = await _context.Rooms.FindAsync(roomId);
             if (room == null) return NotFound(new { message = "Không tìm thấy phòng chiếu!" });
 
+            var currentTime = DateTime.Now;
             var latestShowtime = await _context.Showtimes
-                .Where(s => s.RoomId == roomId && s.StartTime > DateTime.Now)
+                .Where(s => s.RoomId == roomId && s.StartTime > currentTime)
                 .OrderByDescending(s => s.StartTime)
                 .FirstOrDefaultAsync();
 
