@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 
 namespace MovieTicketAPI.Models
 {
@@ -20,6 +20,10 @@ namespace MovieTicketAPI.Models
         public int TotalRows { get; set; } // Tổng số hàng của lưới ma trận (VD: 15)
         public int TotalColumns { get; set; } // Tổng số cột của lưới ma trận (VD: 20)
         public bool IsLayoutConfigured { get; set; } = false; // Đánh dấu xem Admin đã vẽ sơ đồ chưa
+
+        // ============ BẢO TRÌ SƠ ĐỒ ============
+        public bool IsUnderRenovation { get; set; } = false; 
+        public DateTime? RenovationScheduledAt { get; set; }
 
         public Cinema? Cinema { get; set; }
         public ICollection<Seat>? Seats { get; set; }

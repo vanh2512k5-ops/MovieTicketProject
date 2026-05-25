@@ -45,7 +45,7 @@ export default function ConcessionsScreen() {
 
     // Gọi IP MinIO từ file .env
     const minioBaseUrl =
-      process.env.EXPO_PUBLIC_MINIO_URL || "http://172.20.10.3:9000";
+      process.env.EXPO_PUBLIC_MINIO_URL || "http://192.168.0.120:9000";
     return `${minioBaseUrl}${path}`;
   };
 

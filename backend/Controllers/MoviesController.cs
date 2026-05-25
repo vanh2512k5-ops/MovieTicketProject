@@ -7,6 +7,7 @@ using MovieTicketAPI.Models;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.Processing;
 using SixLabors.ImageSharp.Formats.Jpeg;
+using SixLabors.ImageSharp.Formats.Webp;
 using System.Linq;
 using System.Net.Http;
 
@@ -91,13 +92,13 @@ namespace MovieTicketAPI.Controllers
             try
             {
                 var bucketName = config["Minio:BucketName"] ?? "movietickets";
-                var objectName = $"{id}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}.jpg";
+                var objectName = $"{id}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}.webp";
 
                 using var outStream = new MemoryStream();
                 using (var image = await Image.LoadAsync(file.OpenReadStream()))
                 {
                     image.Mutate(x => x.Resize(new ResizeOptions { Size = new Size(800, 0), Mode = ResizeMode.Max }));
-                    await image.SaveAsJpegAsync(outStream, new JpegEncoder { Quality = 75 });
+                    await image.SaveAsWebpAsync(outStream, new WebpEncoder { Quality = 75 });
                 }
                 outStream.Position = 0;
 
@@ -106,7 +107,7 @@ namespace MovieTicketAPI.Controllers
                     .WithObject(objectName)
                     .WithStreamData(outStream)
                     .WithObjectSize(outStream.Length)
-                    .WithContentType("image/jpeg");
+                    .WithContentType("image/webp");
 
                 await minioClient.PutObjectAsync(putObjectArgs).ConfigureAwait(false);
 
@@ -136,13 +137,13 @@ namespace MovieTicketAPI.Controllers
             try
             {
                 var bucketName = config["Minio:BucketName"] ?? "movietickets";
-                var objectName = $"actor_{movieId}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}.jpg";
+                var objectName = $"actor_{movieId}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}.webp";
 
                 using var outStream = new MemoryStream();
                 using (var image = await Image.LoadAsync(file.OpenReadStream()))
                 {
                     image.Mutate(x => x.Resize(new ResizeOptions { Size = new Size(400, 400), Mode = ResizeMode.Crop }));
-                    await image.SaveAsJpegAsync(outStream, new JpegEncoder { Quality = 75 });
+                    await image.SaveAsWebpAsync(outStream, new WebpEncoder { Quality = 75 });
                 }
                 outStream.Position = 0;
 
@@ -151,7 +152,7 @@ namespace MovieTicketAPI.Controllers
                     .WithObject(objectName)
                     .WithStreamData(outStream)
                     .WithObjectSize(outStream.Length)
-                    .WithContentType("image/jpeg");
+                    .WithContentType("image/webp");
 
                 await minioClient.PutObjectAsync(putObjectArgs).ConfigureAwait(false);
 
@@ -203,17 +204,17 @@ namespace MovieTicketAPI.Controllers
                     using (var image = await Image.LoadAsync(inStream))
                     {
                         image.Mutate(x => x.Resize(new ResizeOptions { Size = new Size(400, 400), Mode = ResizeMode.Crop }));
-                        await image.SaveAsJpegAsync(outStream, new JpegEncoder { Quality = 75 });
+                        await image.SaveAsWebpAsync(outStream, new WebpEncoder { Quality = 75 });
                     }
                     outStream.Position = 0;
 
-                    var objectName = $"actor_migrated_{actor.Id}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}.jpg";
+                    var objectName = $"actor_migrated_{actor.Id}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}.webp";
                     var putObjectArgs = new PutObjectArgs()
                         .WithBucket(bucketName)
                         .WithObject(objectName)
                         .WithStreamData(outStream)
                         .WithObjectSize(outStream.Length)
-                        .WithContentType("image/jpeg");
+                        .WithContentType("image/webp");
 
                     await minioClient.PutObjectAsync(putObjectArgs);
 
@@ -229,6 +230,74 @@ namespace MovieTicketAPI.Controllers
 
             await _context.SaveChangesAsync();
             return Ok(new { Message = $"Đã 'MinIO hóa' thành công {count} diễn viên. Tất cả đã chuyển thành link tương đối!", Total = actors.Count });
+        }
+
+        // 9. HÀM "ÉP XUNG" POSTER: NÉN LẠI TOÀN BỘ POSTER CŨ SANG WEBP 800PX
+        // Tạm thời tắt Authorize để bạn dễ dàng gọi từ Swagger
+        // [Authorize(Roles = "Admin")]
+        [HttpPost("compress-old-posters")]
+        public async Task<IActionResult> CompressOldPosters([FromServices] IMinioClient minioClient, [FromServices] IConfiguration config)
+        {
+            var movies = await _context.Movies.ToListAsync();
+            var bucketName = config["Minio:BucketName"] ?? "movietickets";
+            int count = 0;
+
+            using var httpClient = new HttpClient();
+
+            foreach (var movie in movies)
+            {
+                if (string.IsNullOrEmpty(movie.PosterUrl) || movie.PosterUrl.EndsWith(".webp"))
+                    continue; // Bỏ qua nếu chưa có ảnh hoặc đã nén thành webp rồi
+
+                try
+                {
+                    byte[] imageBytes;
+                    // Xử lý cả link cứng http://... và link tương đối /movietickets/...
+                    // Fix triệt để: Nếu URL chứa IP cũ, ép nó về http://127.0.0.1:9000 để tải file cục bộ cho nhanh và không bị timeout
+                    string fullUrl = movie.PosterUrl;
+                    if (fullUrl.StartsWith("http"))
+                    {
+                        var uri = new Uri(fullUrl);
+                        fullUrl = $"http://127.0.0.1:9000{uri.AbsolutePath}";
+                    }
+                    else if (fullUrl.StartsWith($"/{bucketName}"))
+                    {
+                        fullUrl = $"http://127.0.0.1:9000{fullUrl}";
+                    }
+
+                    imageBytes = await httpClient.GetByteArrayAsync(fullUrl);
+
+                    using var inStream = new MemoryStream(imageBytes);
+                    using var outStream = new MemoryStream();
+                    using (var image = await Image.LoadAsync(inStream))
+                    {
+                        image.Mutate(x => x.Resize(new ResizeOptions { Size = new Size(800, 0), Mode = ResizeMode.Max }));
+                        await image.SaveAsWebpAsync(outStream, new WebpEncoder { Quality = 75 });
+                    }
+                    outStream.Position = 0;
+
+                    var objectName = $"poster_compressed_{movie.Id}_{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}.webp";
+                    var putObjectArgs = new PutObjectArgs()
+                        .WithBucket(bucketName)
+                        .WithObject(objectName)
+                        .WithStreamData(outStream)
+                        .WithObjectSize(outStream.Length)
+                        .WithContentType("image/webp");
+
+                    await minioClient.PutObjectAsync(putObjectArgs);
+
+                    // Ghi đè link mới vào DB
+                    movie.PosterUrl = $"/{bucketName}/{objectName}";
+                    count++;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Lỗi khi nén poster phim {movie.Title}: {ex.Message}");
+                }
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { Message = $"Đã nén thành công {count} Poster cũ sang định dạng WebP siêu nhẹ!", Total = movies.Count });
         }
     }
 }

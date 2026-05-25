@@ -200,21 +200,21 @@ namespace MovieTicketAPI.Controllers
                         Description = "1 Bắp ngọt (Lớn) + 1 Nước ngọt (Lớn)",
                         Price = 75000, 
                         // Đảm bảo đuôi .jpg hoặc .png khớp với tên sếp vừa up lên MinIO nhé
-                        ImageUrl = "http://172.20.10.3:9000/movietickets/combo-solo.png"
+                        ImageUrl = "http://192.168.0.120:9000/movietickets/combo-solo.png"
                     },
                     new Combo
                     {
                         Name = "Combo Couple",
                         Description = "1 Bắp ngọt (Lớn) + 2 Nước ngọt (Lớn)",
                         Price = 105000,
-                        ImageUrl = "http://172.20.10.3:9000/movietickets/combo-couple.png"
+                        ImageUrl = "http://192.168.0.120:9000/movietickets/combo-couple.png"
                     },
                     new Combo
                     {
                         Name = "Combo Family Party",
                         Description = "2 Bắp (Lớn) + 4 Nước (Lớn) + 2 Snack",
                         Price = 210000,
-                        ImageUrl = "http://172.20.10.3:9000/movietickets/combo-family.png"
+                        ImageUrl = "http://192.168.0.120:9000/movietickets/combo-family.png"
                     }
                 };
 
@@ -294,6 +294,85 @@ namespace MovieTicketAPI.Controllers
             catch (Exception ex)
             {
                 return BadRequest($"Lỗi rồi sếp ơi: {ex.Message}");
+            }
+        }
+
+        [HttpPost("seed-showtimes-only")]
+        public async Task<IActionResult> SeedShowtimesOnly()
+        {
+            try
+            {
+                // Xóa suất chiếu cũ để không bị trùng lặp
+                _context.Showtimes.RemoveRange(_context.Showtimes);
+                await _context.SaveChangesAsync();
+
+                // Lấy danh sách các phòng hiện có trong DB
+                var rooms = await _context.Rooms.ToListAsync();
+                if (!rooms.Any()) 
+                    return BadRequest(new { Message = "Chưa có phòng nào trong CSDL! Hãy thêm rạp và phòng trước." });
+
+                // Tìm ngẫu nhiên các phòng (nếu không khớp tên thì lấy đại phòng đầu tiên)
+                var roomCGV_1 = rooms.FirstOrDefault(r => r.Name.Contains("IMAX")) ?? rooms[0];
+                var roomCGV_2 = rooms.FirstOrDefault(r => r.Name.Contains("2D Thường")) ?? rooms[0];
+                var roomBHD_1 = rooms.FirstOrDefault(r => r.Name.Contains("2D") && !r.Name.Contains("Thường")) ?? rooms[0];
+                var roomBHD_2 = rooms.FirstOrDefault(r => r.Name.Contains("3D")) ?? rooms[0];
+                var roomBeta_1 = rooms.FirstOrDefault(r => r.Name.Contains("Cơ Bản")) ?? rooms[0];
+                var roomBeta_2 = rooms.FirstOrDefault(r => r.Name.Contains("VIP")) ?? rooms.Last();
+
+                var showtimes = new List<Showtime>();
+                var today = DateTime.Today;
+                var tomorrow = today.AddDays(1);
+                var nextDay = today.AddDays(2);
+
+                // ============ PHIM 1 ============
+                showtimes.Add(new Showtime { MovieId = 1, RoomId = roomCGV_1.Id, StartTime = today.AddHours(9).AddMinutes(30), BasePrice = 80000 });
+                showtimes.Add(new Showtime { MovieId = 1, RoomId = roomCGV_1.Id, StartTime = today.AddHours(14).AddMinutes(15), BasePrice = 80000 });
+                showtimes.Add(new Showtime { MovieId = 1, RoomId = roomBeta_1.Id, StartTime = today.AddHours(14), BasePrice = 70000 });
+                showtimes.Add(new Showtime { MovieId = 1, RoomId = roomCGV_2.Id, StartTime = today.AddHours(19).AddMinutes(45), BasePrice = 85000 });
+                showtimes.Add(new Showtime { MovieId = 1, RoomId = roomCGV_2.Id, StartTime = today.AddHours(22).AddMinutes(15), BasePrice = 85000 });
+                showtimes.Add(new Showtime { MovieId = 1, RoomId = roomBeta_2.Id, StartTime = tomorrow.AddHours(10).AddMinutes(30), BasePrice = 75000 });
+                showtimes.Add(new Showtime { MovieId = 1, RoomId = roomCGV_1.Id, StartTime = tomorrow.AddHours(20), BasePrice = 90000 });
+
+                // ============ PHIM 2 ============
+                foreach (var room in rooms)
+                {
+                    showtimes.Add(new Showtime { MovieId = 2, RoomId = room.Id, StartTime = today.AddHours(8).AddMinutes(30), BasePrice = 70000 });
+                    showtimes.Add(new Showtime { MovieId = 2, RoomId = room.Id, StartTime = today.AddHours(13), BasePrice = 80000 });
+                    showtimes.Add(new Showtime { MovieId = 2, RoomId = room.Id, StartTime = today.AddHours(19), BasePrice = 85000 });
+                    showtimes.Add(new Showtime { MovieId = 2, RoomId = room.Id, StartTime = today.AddHours(21).AddMinutes(30), BasePrice = 90000 });
+                    showtimes.Add(new Showtime { MovieId = 2, RoomId = room.Id, StartTime = tomorrow.AddHours(10), BasePrice = 75000 });
+                    showtimes.Add(new Showtime { MovieId = 2, RoomId = room.Id, StartTime = tomorrow.AddHours(15).AddMinutes(15), BasePrice = 80000 });
+                    showtimes.Add(new Showtime { MovieId = 2, RoomId = room.Id, StartTime = tomorrow.AddHours(18).AddMinutes(45), BasePrice = 85000 });
+                    showtimes.Add(new Showtime { MovieId = 2, RoomId = room.Id, StartTime = nextDay.AddHours(9), BasePrice = 75000 });
+                    showtimes.Add(new Showtime { MovieId = 2, RoomId = room.Id, StartTime = nextDay.AddHours(20), BasePrice = 90000 });
+                }
+
+                // ============ PHIM 3 ============ 
+                showtimes.Add(new Showtime { MovieId = 3, RoomId = roomBHD_1.Id, StartTime = today.AddHours(10), BasePrice = 70000 });
+                showtimes.Add(new Showtime { MovieId = 3, RoomId = roomBHD_1.Id, StartTime = today.AddHours(20).AddMinutes(30), BasePrice = 80000 });
+                showtimes.Add(new Showtime { MovieId = 3, RoomId = roomCGV_2.Id, StartTime = today.AddHours(16).AddMinutes(45), BasePrice = 85000 });
+                showtimes.Add(new Showtime { MovieId = 3, RoomId = roomBHD_2.Id, StartTime = tomorrow.AddHours(13).AddMinutes(30), BasePrice = 75000 });
+                showtimes.Add(new Showtime { MovieId = 3, RoomId = roomBeta_1.Id, StartTime = tomorrow.AddHours(19), BasePrice = 85000 });
+                showtimes.Add(new Showtime { MovieId = 3, RoomId = roomBHD_1.Id, StartTime = nextDay.AddHours(15), BasePrice = 75000 });
+                showtimes.Add(new Showtime { MovieId = 3, RoomId = roomBHD_2.Id, StartTime = nextDay.AddHours(22), BasePrice = 85000 });
+
+                // ============ PHIM 4 ============ 
+                showtimes.Add(new Showtime { MovieId = 4, RoomId = roomCGV_1.Id, StartTime = today.AddHours(18).AddMinutes(15), BasePrice = 90000 });
+                showtimes.Add(new Showtime { MovieId = 4, RoomId = roomBeta_2.Id, StartTime = today.AddHours(21), BasePrice = 80000 });
+                showtimes.Add(new Showtime { MovieId = 4, RoomId = roomBHD_2.Id, StartTime = tomorrow.AddHours(14), BasePrice = 85000 });
+
+                // ============ PHIM 5 ============ 
+                showtimes.Add(new Showtime { MovieId = 5, RoomId = roomBeta_1.Id, StartTime = today.AddHours(17).AddMinutes(30), BasePrice = 75000 });
+                showtimes.Add(new Showtime { MovieId = 5, RoomId = roomCGV_2.Id, StartTime = tomorrow.AddHours(20).AddMinutes(15), BasePrice = 85000 });
+
+                _context.Showtimes.AddRange(showtimes);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { Message = $"Đã tạo thành công {showtimes.Count} suất chiếu phân bổ cho các phòng!" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Đã xảy ra lỗi: " + ex.Message });
             }
         }
     }

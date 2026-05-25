@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MovieTicketAPI.Models;
 
@@ -24,7 +24,7 @@ namespace MovieTicketAPI.Controllers
 
             // 2. Lấy toàn bộ ghế của Phòng đó
             var allSeats = await _context.Seats
-                .Where(s => s.RoomId == showtime.RoomId)
+                .Where(s => s.RoomId == showtime.RoomId && !s.IsDeleted)
                 .OrderBy(s => s.RowName).ThenBy(s => s.SeatNumber)
                 .ToListAsync();
 

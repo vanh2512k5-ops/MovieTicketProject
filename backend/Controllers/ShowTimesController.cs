@@ -63,6 +63,13 @@ namespace MovieTicketAPI.Controllers
         [HttpPost]
         public async Task<IActionResult> CreateShowtime([FromBody] CreateShowtimeRequest request)
         {
+            // KIỂM TRA PHÒNG CÓ ĐANG KHÓA CẢI TẠO KHÔNG
+            var room = await _context.Rooms.FindAsync(request.RoomId);
+            if (room != null && room.IsUnderRenovation)
+            {
+                return BadRequest($"Phòng chiếu này đang được khóa để chờ cải tạo sơ đồ ghế (từ {room.RenovationScheduledAt?.ToString("dd/MM/yyyy HH:mm")}). Không thể thêm suất chiếu mới vào lúc này!");
+            }
+
             var isConflict = await _context.Showtimes.AnyAsync(s =>
                 s.RoomId == request.RoomId && s.StartTime == request.StartTime);
 

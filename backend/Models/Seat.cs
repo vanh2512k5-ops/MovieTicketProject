@@ -1,4 +1,4 @@
-﻿namespace MovieTicketAPI.Models
+namespace MovieTicketAPI.Models
 {
     public enum SeatType
     {
@@ -25,6 +25,7 @@
         // Thuộc tính của ghế
         public SeatType Type { get; set; }
         public bool IsActive { get; set; } = true; // true: Mở bán bình thường, false: Bị khóa/Bảo trì
+        public bool IsDeleted { get; set; } = false; // Xóa mềm để giữ lại ghế cho các vé quá khứ
 
         public Room? Room { get; set; }
     }

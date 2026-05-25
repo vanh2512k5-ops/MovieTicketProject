@@ -67,7 +67,7 @@ export default function MovieDetailScreen() {
 
     // Nếu là link tương đối (VD: /movietickets/anh.jpg), tự động ghép với IP trong file .env
     const minioBaseUrl =
-      process.env.EXPO_PUBLIC_MINIO_URL || "http://172.20.10.3:9000";
+      process.env.EXPO_PUBLIC_MINIO_URL || "http://192.168.0.120:9000";
     return `${minioBaseUrl}${path}`;
   };
 
