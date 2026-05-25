@@ -245,64 +245,119 @@ const renderSeatMatrix = () => {
         const isVip = seat.type === "VIP";
         const isCouple = seat.type === "Couple";
 
-        rowColumnsUI.push(
-          <TouchableOpacity
-            key={seat.id}
-            activeOpacity={0.7}
-            disabled={isLocked || isOccupied}
-            onPress={() => toggleSeatSelection(seat)}
-            style={[
-              styles.seatCell,
-              {
-                width: seatW,
+        if (isCouple) {
+          rowColumnsUI.push(
+            <TouchableOpacity
+              key={seat.id}
+              activeOpacity={0.7}
+              disabled={isLocked || isOccupied}
+              onPress={() => toggleSeatSelection(seat)}
+              style={{
+                width: coupleW,
                 height: seatW,
                 marginHorizontal: marginH,
-                borderRadius: radius,
-              },
-              isVip && styles.seatVip,
-              isCouple && {
-                width: coupleW,
-                backgroundColor: "#805AD5",
-                borderRadius: radius,
-              },
-              isOccupied && styles.seatBooked,
-              isLocked && styles.seatLocked,
-              isSelected && styles.seatSelected,
-            ]}
-          >
-            <Text
+                flexDirection: "row",
+                justifyContent: "space-between",
+              }}
+            >
+              {/* Nửa trái */}
+              <View
+                style={[
+                  styles.seatCell,
+                  { flex: 1, marginRight: 1 * zoom, borderRadius: radius },
+                  { backgroundColor: "#805AD5" },
+                  isOccupied && styles.seatBooked,
+                  isLocked && styles.seatLocked,
+                  isSelected && styles.seatSelected,
+                ]}
+              >
+                <Text
+                  style={[
+                    { fontSize: fontS, fontWeight: "bold", color: "#FFF" },
+                  ]}
+                >
+                  {seat.rowName}{seat.seatNumber}
+                </Text>
+              </View>
+
+              {/* Nửa phải */}
+              <View
+                style={[
+                  styles.seatCell,
+                  { flex: 1, marginLeft: 1 * zoom, borderRadius: radius },
+                  { backgroundColor: "#805AD5" },
+                  isOccupied && styles.seatBooked,
+                  isLocked && styles.seatLocked,
+                  isSelected && styles.seatSelected,
+                ]}
+              >
+                <Text
+                  style={[
+                    { fontSize: fontS, fontWeight: "bold", color: "#FFF" },
+                  ]}
+                >
+                  {seat.rowName}{seat.seatNumber + 1}
+                </Text>
+              </View>
+
+              {/* Icon Trái tim ở giữa hai ghế */}
+              {!isSelected && !isOccupied && !isLocked && (
+                <View style={[StyleSheet.absoluteFill, { alignItems: "center", justifyContent: "flex-end" }]} pointerEvents="none">
+                  <Text style={[styles.iconHeart, { fontSize: iconS, bottom: -2 * zoom }]}>♥</Text>
+                </View>
+              )}
+            </TouchableOpacity>,
+          );
+        } else {
+          rowColumnsUI.push(
+            <TouchableOpacity
+              key={seat.id}
+              activeOpacity={0.7}
+              disabled={isLocked || isOccupied}
+              onPress={() => toggleSeatSelection(seat)}
               style={[
-                { fontSize: fontS, fontWeight: "bold", color: "#4A5568" },
-                (isOccupied || isSelected || isCouple || isLocked || isVip) && {
-                  color: "#FFF",
+                styles.seatCell,
+                {
+                  width: seatW,
+                  height: seatW,
+                  marginHorizontal: marginH,
+                  borderRadius: radius,
                 },
+                isVip && styles.seatVip,
+                isOccupied && styles.seatBooked,
+                isLocked && styles.seatLocked,
+                isSelected && styles.seatSelected,
               ]}
             >
-              {seat.rowName}
-              {seat.seatNumber}
-            </Text>
-            {isVip && !isSelected && !isOccupied && !isLocked && (
               <Text
                 style={[
-                  styles.iconStar,
-                  { fontSize: iconS, bottom: -2 * zoom },
+                  { fontSize: fontS, fontWeight: "bold", color: "#4A5568" },
+                  (isOccupied || isSelected || isLocked || isVip) && {
+                    color: "#FFF",
+                  },
                 ]}
               >
-                ☆
+                {seat.rowName}
+                {seat.seatNumber}
               </Text>
-            )}
-            {isCouple && !isSelected && !isOccupied && !isLocked && (
-              <Text
-                style={[
-                  styles.iconHeart,
-                  { fontSize: iconS, bottom: -2 * zoom },
-                ]}
-              >
-                ♡
-              </Text>
-            )}
-          </TouchableOpacity>,
-        );
+              {isVip && !isSelected && !isOccupied && !isLocked && (
+                <Text
+                  style={[
+                    styles.iconStar,
+                    { fontSize: iconS, bottom: -2 * zoom },
+                  ]}
+                >
+                  ☆
+                </Text>
+              )}
+            </TouchableOpacity>,
+          );
+        }
+
+        // Bỏ qua (nuốt) ô tiếp theo nếu đây là ghế Couple
+        if (isCouple) {
+          c++;
+        }
       }
 
       

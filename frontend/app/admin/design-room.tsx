@@ -53,8 +53,53 @@ export default function DesignRoomScreen() {
 
   useEffect(() => {
     if (!roomId) return;
-    const fetchExistingLayout = async () => {
+    const checkAndFetchLayout = async () => {
       try {
+        // 1. Kiểm tra trạng thái phòng trước
+        const checkRes = await axiosClient.get(`/AdminLayout/check-layout-update/${roomId}`);
+        const { canEditImmediately, isAlreadyScheduled, scheduledAt, latestShowtimeDate } = checkRes.data;
+
+        if (!canEditImmediately) {
+          if (isAlreadyScheduled) {
+            const dateStr = new Date(scheduledAt).toLocaleString("vi-VN");
+            Alert.alert(
+              "Phòng đang bị khóa!",
+              `Phòng chiếu này đã được đặt lịch khóa để cải tạo từ ${dateStr}. Bạn chỉ có thể sửa sơ đồ sau thời điểm này.`,
+              [{ text: "Quay lại", onPress: () => router.back() }]
+            );
+          } else {
+            const dateStr = new Date(latestShowtimeDate).toLocaleString("vi-VN");
+            Alert.alert(
+              "Phòng đang có lịch chiếu!",
+              `Phòng chiếu này có suất chiếu đến ${dateStr}.\n\nBạn có muốn đặt lịch khóa phòng từ thời điểm đó để chờ cải tạo sơ đồ không? (Hệ thống sẽ chặn thêm lịch chiếu mới vào phòng này)`,
+              [
+                { text: "Hủy bỏ", style: "cancel", onPress: () => router.back() },
+                {
+                  text: "Đặt lịch khóa phòng",
+                  onPress: async () => {
+                    try {
+                      await axiosClient.post(`/AdminLayout/schedule-renovation/${roomId}`, {
+                        scheduledAt: latestShowtimeDate
+                      });
+                      Alert.alert(
+                        "Thành công!",
+                        `Đã đặt lịch khóa phòng từ ${dateStr}. Vui lòng quay lại đây để sửa sơ đồ sau thời điểm đó.`,
+                        [{ text: "OK", onPress: () => router.back() }]
+                      );
+                    } catch (err: any) {
+                      Alert.alert("Lỗi", err.response?.data?.message || "Lỗi khi đặt lịch khóa phòng");
+                      router.back();
+                    }
+                  }
+                }
+              ]
+            );
+          }
+          setIsLoading(false);
+          return;
+        }
+
+        // 2. Nếu được phép sửa, tiến hành tải layout cũ
         const response = await axiosClient.get(
           `/AdminLayout/get-layout/${roomId}`,
         );
@@ -110,7 +155,7 @@ export default function DesignRoomScreen() {
         setIsLoading(false);
       }
     };
-    fetchExistingLayout();
+    checkAndFetchLayout();
   }, [roomId]);
 
   const handleApplyDimensions = () => {
@@ -154,12 +199,25 @@ export default function DesignRoomScreen() {
   const handleSaveLayout = async () => {
     if (!roomId) return Alert.alert("Lỗi", "Không tìm thấy ID phòng!");
     try {
-      const payloadCells = grid.map((cell) => ({
-        gridRow: cell.gridRow,
-        gridColumn: cell.gridColumn,
-        type: cell.type,
-        isActive: cell.isActive,
-      }));
+      // Xác định các ô bị ghế Couple nuốt
+      const absorbedCols = new Set();
+      for (let r = 0; r < actualRows; r++) {
+        const cellsInRow = grid.filter(c => c.gridRow === r).sort((a,b) => a.gridColumn - b.gridColumn);
+        cellsInRow.forEach(cell => {
+          if (cell.type === 2 && !absorbedCols.has(`${r}-${cell.gridColumn}`)) {
+              absorbedCols.add(`${r}-${cell.gridColumn + 1}`);
+          }
+        });
+      }
+
+      const payloadCells = grid
+        .filter(cell => !absorbedCols.has(`${cell.gridRow}-${cell.gridColumn}`))
+        .map((cell) => ({
+          gridRow: cell.gridRow,
+          gridColumn: cell.gridColumn,
+          type: cell.type,
+          isActive: cell.isActive,
+        }));
       const requestBody = { direction: direction, cells: payloadCells };
       const response = await axiosClient.post(
         `/AdminLayout/save-layout/${roomId}`,
@@ -206,9 +264,28 @@ export default function DesignRoomScreen() {
             ? [...realSeats].sort((a, b) => b.gridColumn - a.gridColumn)
             : [...realSeats].sort((a, b) => a.gridColumn - b.gridColumn);
 
-        sortedSeats.forEach((seat, index) => {
-          cellLabels[`${seat.gridRow}-${seat.gridColumn}`] =
-            `${rowChar}${index + 1}`;
+        // Quét từ trái sang phải để tìm các ô bị ghế Couple "nuốt"
+        const absorbedCols = new Set();
+        cellsInRow.sort((a, b) => a.gridColumn - b.gridColumn).forEach(cell => {
+            if (cell.type === 2 && !absorbedCols.has(cell.gridColumn)) {
+                absorbedCols.add(cell.gridColumn + 1); // Ghế couple luôn nuốt ô bên phải nó
+            }
+        });
+
+        // Chỉ đánh số những ghế không bị nuốt
+        const validRealSeats = sortedSeats.filter(s => !absorbedCols.has(s.gridColumn));
+
+        let currentNum = 1;
+        validRealSeats.forEach((seat) => {
+          if (seat.type === 2) {
+            cellLabels[`${seat.gridRow}-${seat.gridColumn}`] =
+              `${rowChar}${currentNum}${rowChar}${currentNum + 1}`;
+            currentNum += 2;
+          } else {
+            cellLabels[`${seat.gridRow}-${seat.gridColumn}`] =
+              `${rowChar}${currentNum}`;
+            currentNum += 1;
+          }
         });
 
         currentRowCharCode++;
@@ -321,39 +398,75 @@ export default function DesignRoomScreen() {
                 </View>
 
                 {/* CÁC Ô GHẾ */}
-                {grid
-                  .filter((c) => c.gridRow === r)
-                  .sort((a, b) => a.gridColumn - b.gridColumn)
-                  .map((cell) => {
-                    const cellKey = `${cell.gridRow}-${cell.gridColumn}`;
-                    const cellText = previewData.cellLabels[cellKey] || "";
-                    const isEmpty = cell.type === TOOLS.EMPTY.type;
+                {(() => {
+                  let skipNext = false;
+                  return grid
+                    .filter((c) => c.gridRow === r)
+                    .sort((a, b) => a.gridColumn - b.gridColumn)
+                    .map((cell) => {
+                      if (skipNext) {
+                        skipNext = false;
+                        return null; // Bỏ qua hiển thị ô bị ghế Couple nuốt
+                      }
+                      if (cell.type === 2) skipNext = true;
 
-                    return (
-                      <TouchableOpacity
-                        key={`cell-${cell.gridColumn}`}
-                        style={[
-                          styles.seatCell,
-                          {
-                            width: seatSize,
-                            height: seatSize,
-                            marginHorizontal: marginH,
-                            borderRadius: radius,
-                            backgroundColor: cell.color,
-                            // Nếu là lối đi thì tàng hình viền, ngược lại có viền mờ cho dễ nhìn
-                            borderWidth: isEmpty ? 0 : 1,
-                            borderColor: "rgba(0,0,0,0.1)",
-                          },
-                        ]}
-                        onPress={() => handleCellPress(r, cell.gridColumn)}
-                      >
+                      const cellKey = `${cell.gridRow}-${cell.gridColumn}`;
+                      const cellText = previewData.cellLabels[cellKey] || "";
+                      const isEmpty = cell.type === TOOLS.EMPTY.type;
+
+                      if (cell.type === 2) {
+                        // Ghế Couple: Tách thành 2 nửa
+                        const half = Math.floor(cellText.length / 2);
+                        const leftText = cellText.substring(0, half);
+                        const rightText = cellText.substring(half);
+
+                        return (
+                          <TouchableOpacity
+                            key={`cell-${cell.gridColumn}`}
+                            style={{
+                              width: seatSize * 2 + marginH * 2,
+                              height: seatSize,
+                              marginHorizontal: marginH,
+                              flexDirection: "row",
+                              justifyContent: "space-between",
+                            }}
+                            onPress={() => handleCellPress(r, cell.gridColumn)}
+                          >
+                            <View style={[styles.seatCell, { flex: 1, marginRight: 0.5 * zoom, borderRadius: radius, backgroundColor: cell.color }]}>
+                              <Text style={{ fontSize: cellFontSize, fontWeight: "bold", color: "#FFF" }}>{leftText}</Text>
+                            </View>
+                            <View style={[styles.seatCell, { flex: 1, marginLeft: 0.5 * zoom, borderRadius: radius, backgroundColor: cell.color }]}>
+                              <Text style={{ fontSize: cellFontSize, fontWeight: "bold", color: "#FFF" }}>{rightText}</Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      }
+
+                      return (
+                        <TouchableOpacity
+                          key={`cell-${cell.gridColumn}`}
+                          style={[
+                            styles.seatCell,
+                            {
+                              width: seatSize,
+                              height: seatSize,
+                              marginHorizontal: marginH,
+                              borderRadius: radius,
+                              backgroundColor: cell.color,
+                              // Nếu là lối đi thì tàng hình viền, ngược lại có viền mờ cho dễ nhìn
+                              borderWidth: isEmpty ? 0 : 1,
+                              borderColor: "rgba(0,0,0,0.1)",
+                            },
+                          ]}
+                          onPress={() => handleCellPress(r, cell.gridColumn)}
+                        >
                         {/*HIỂN THỊ SỐ PREVIEW LÊN GHẾ */}
                         {!isEmpty && (
                           <Text
                             style={[
                               { fontSize: cellFontSize, fontWeight: "bold" },
                               // Nếu màu tối (VIP/Couple) thì chữ trắng, màu sáng (Thường) thì chữ đen
-                              cell.type === 1 || cell.type === 2
+                              cell.type === 1
                                 ? { color: "#FFF" }
                                 : { color: "#4A5568" },
                             ]}
@@ -363,7 +476,8 @@ export default function DesignRoomScreen() {
                         )}
                       </TouchableOpacity>
                     );
-                  })}
+                    });
+                })()}
               </View>
             );
           })}
