@@ -56,7 +56,7 @@ export default function HomeScreen() {
     if (!path) return "https://via.placeholder.com/300x450.png?text=No+Image";
     if (path.startsWith("http") || path.startsWith("data:image")) return path;
 
-    const minioBaseUrl = process.env.EXPO_PUBLIC_MINIO_URL;
+    const minioBaseUrl = require('../../utils/config').MINIO_URL;
     return `${minioBaseUrl}${path}`;
   };
 
@@ -65,7 +65,7 @@ export default function HomeScreen() {
     if (!path) return "https://cdn-icons-png.flaticon.com/512/149/149071.png";
     if (path.startsWith("http") || path.startsWith("data:image")) return path;
     
-    const minioBaseUrl = process.env.EXPO_PUBLIC_MINIO_URL;
+    const minioBaseUrl = require('../../utils/config').MINIO_URL;
     return `${minioBaseUrl}${path}`;
   };
 

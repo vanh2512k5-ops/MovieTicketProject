@@ -34,7 +34,7 @@ export default function ProfileScreen() {
     if (!path) return "https://cdn-icons-png.flaticon.com/512/149/149071.png";
     if (path.startsWith("http") || path.startsWith("data:image")) return path;
     
-    const minioBaseUrl = process.env.EXPO_PUBLIC_MINIO_URL;
+    const minioBaseUrl = require('../../utils/config').MINIO_URL;
     return `${minioBaseUrl}${path}`;
   };
 

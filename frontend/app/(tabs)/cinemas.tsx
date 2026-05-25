@@ -40,7 +40,7 @@ export default function CinemasScreen() {
   const getCinemaImage = (path?: string) => {
     if (!path) return "https://placehold.co/600x400/2D3748/FFFFFF/png?text=Hệ+Thống+Rạp";
     if (path.startsWith("http") || path.startsWith("data:image")) return path;
-    const minioBaseUrl = process.env.EXPO_PUBLIC_MINIO_URL;
+    const minioBaseUrl = require('../../utils/config').MINIO_URL;
     return `${minioBaseUrl}${path}`;
   };
 

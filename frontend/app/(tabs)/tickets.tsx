@@ -36,7 +36,7 @@ export default function TicketsScreen() {
   const getPosterUrl = (path?: string) => {
     if (!path) return "https://via.placeholder.com/300x450.png?text=No+Poster";
     if (path.startsWith("http") || path.startsWith("data:image")) return path;
-    const minioBaseUrl = process.env.EXPO_PUBLIC_MINIO_URL;
+    const minioBaseUrl = require('../../utils/config').MINIO_URL;
     return `${minioBaseUrl}${path}`;
   };
 
