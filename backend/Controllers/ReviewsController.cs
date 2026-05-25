@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MovieTicketAPI.Models;
 using MovieTicketAPI.Services; // 1. Phải có dòng này
+using System.Security.Claims;
+using MovieTicketAPI.Extensions;
 
 namespace MovieTicketAPI.Controllers
 {
@@ -26,6 +28,19 @@ namespace MovieTicketAPI.Controllers
         {
             if (review == null) return BadRequest("Dữ liệu không hợp lệ!");
 
+            var currentUserId = User.GetUserId();
+            if (currentUserId == null) return Unauthorized(new { Message = "Không thể xác thực người dùng." });
+            int userId = currentUserId.Value;
+
+            var user = await _context.Users.FindAsync(userId);
+            if (user == null)
+            {
+                return Unauthorized(new { Message = "Người dùng không tồn tại." });
+            }
+
+            // Ghi đè thông tin người dùng từ token để chống giả mạo
+            review.UserId = userId;
+            review.UserName = user.FullName;
             review.CreatedAt = DateTime.Now;
 
             _context.Reviews.Add(review);

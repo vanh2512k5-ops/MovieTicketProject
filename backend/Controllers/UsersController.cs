@@ -9,6 +9,7 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using MovieTicketAPI.Extensions;
 
 namespace MovieTicketAPI.Controllers
 {
@@ -172,11 +173,15 @@ namespace MovieTicketAPI.Controllers
 
         // 3. API TẢI ẢNH ĐẠI DIỆN LÊN MINIO
         [Authorize]
-        [HttpPost("{id}/upload-avatar")]
-        public async Task<IActionResult> UploadAvatar(int id, IFormFile file)
+        [HttpPost("upload-avatar")]
+        public async Task<IActionResult> UploadAvatar(IFormFile file)
         {
             try
             {
+                var currentUserId = User.GetUserId();
+                if (currentUserId == null) return Unauthorized(new { message = "Không thể xác thực người dùng." });
+                int id = currentUserId.Value;
+
                 var user = await _context.Users.FindAsync(id);
                 if (user == null)
                     return NotFound(new { message = "Không tìm thấy tài khoản!" });
