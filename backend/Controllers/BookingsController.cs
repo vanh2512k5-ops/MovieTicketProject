@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MovieTicketAPI.Models;
+using System.Security.Claims;
+using MovieTicketAPI.Extensions;
 
 namespace MovieTicketAPI.Controllers
 {
@@ -18,7 +20,6 @@ namespace MovieTicketAPI.Controllers
 
         public class CreateBookingRequest
         {
-            public int UserId { get; set; }
             public int ShowtimeId { get; set; }
             public List<int> SeatIds { get; set; } = new List<int>();
         }
@@ -51,9 +52,13 @@ namespace MovieTicketAPI.Controllers
                 return BadRequest(new { Message = "Ghế đã có người đặt!", ConflictedSeatIds = bookedSeats });
             }
 
+            var currentUserId = User.GetUserId();
+            if (currentUserId == null) return Unauthorized(new { Message = "Không thể xác thực người dùng." });
+            int userId = currentUserId.Value;
+
             var booking = new Booking
             {
-                UserId = request.UserId,
+                UserId = userId,
                 ShowtimeId = request.ShowtimeId,
                 BookingDate = DateTime.UtcNow,
                 TotalPrice = showtime.BasePrice * request.SeatIds.Count,
@@ -79,11 +84,15 @@ namespace MovieTicketAPI.Controllers
         // ==========================================
         // 2. API LẤY DANH SÁCH VÉ CỦA TÔI 
         // ==========================================
-        // GET: api/Bookings/user/5
+        // GET: api/Bookings/my-bookings
         [Authorize]
-        [HttpGet("user/{userId}")]
-        public async Task<IActionResult> GetMyBookings(int userId)
+        [HttpGet("my-bookings")]
+        public async Task<IActionResult> GetMyBookings()
         {
+            var currentUserId = User.GetUserId();
+            if (currentUserId == null) return Unauthorized(new { Message = "Không thể xác thực người dùng." });
+            int userId = currentUserId.Value;
+
             var bookings = await _context.Bookings
                 // Nối các bảng để lấy đủ thông tin: Phim, Rạp, Phòng, Ghế
                 .Include(b => b.Showtime).ThenInclude(s => s.Movie)
