@@ -10,6 +10,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using MovieTicketAPI.Extensions;
+using System.ComponentModel.DataAnnotations;
 
 namespace MovieTicketAPI.Controllers
 {
@@ -176,93 +177,98 @@ namespace MovieTicketAPI.Controllers
         [HttpPost("upload-avatar")]
         public async Task<IActionResult> UploadAvatar(IFormFile file)
         {
-            try
+            var currentUserId = User.GetUserId();
+            if (currentUserId == null) return Unauthorized(new { message = "Không thể xác thực người dùng." });
+            int id = currentUserId.Value;
+
+            var user = await _context.Users.FindAsync(id);
+            if (user == null)
+                return NotFound(new { message = "Không tìm thấy tài khoản!" });
+
+            if (file == null || file.Length == 0)
+                return BadRequest(new { message = "Vui lòng chọn một bức ảnh hợp lệ!" });
+
+            // Kiểm tra đuôi file
+            var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
+            var extension = Path.GetExtension(file.FileName).ToLower();
+            if (!allowedExtensions.Contains(extension))
+                return BadRequest(new { message = "Chỉ chấp nhận file ảnh (.jpg, .png, .jpeg, .gif)" });
+
+            // Lấy cấu hình MinIO từ appsettings.json
+            string endpoint = _config["Minio:Endpoint"] ?? "127.0.0.1:9000";
+            string accessKey = _config["Minio:AccessKey"] ?? "minioadmin";
+            string secretKey = _config["Minio:SecretKey"] ?? "minioadmin";
+            string bucketName = _config["Minio:BucketName"] ?? "movietickets";
+
+            // Khởi tạo MinioClient
+            using var minioClient = new MinioClient()
+                .WithEndpoint(endpoint)
+                .WithCredentials(accessKey, secretKey)
+                .Build();
+
+            // Tạo bucket nếu chưa có
+            bool found = await minioClient.BucketExistsAsync(new BucketExistsArgs().WithBucket(bucketName));
+            if (!found)
             {
-                var currentUserId = User.GetUserId();
-                if (currentUserId == null) return Unauthorized(new { message = "Không thể xác thực người dùng." });
-                int id = currentUserId.Value;
-
-                var user = await _context.Users.FindAsync(id);
-                if (user == null)
-                    return NotFound(new { message = "Không tìm thấy tài khoản!" });
-
-                if (file == null || file.Length == 0)
-                    return BadRequest(new { message = "Vui lòng chọn một bức ảnh hợp lệ!" });
-
-                // Kiểm tra đuôi file
-                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".gif" };
-                var extension = Path.GetExtension(file.FileName).ToLower();
-                if (!allowedExtensions.Contains(extension))
-                    return BadRequest(new { message = "Chỉ chấp nhận file ảnh (.jpg, .png, .jpeg, .gif)" });
-
-                // Lấy cấu hình MinIO từ appsettings.json
-                string endpoint = _config["Minio:Endpoint"] ?? "127.0.0.1:9000";
-                string accessKey = _config["Minio:AccessKey"] ?? "minioadmin";
-                string secretKey = _config["Minio:SecretKey"] ?? "minioadmin";
-                string bucketName = _config["Minio:BucketName"] ?? "movietickets";
-
-                // Khởi tạo MinioClient
-                using var minioClient = new MinioClient()
-                    .WithEndpoint(endpoint)
-                    .WithCredentials(accessKey, secretKey)
-                    .Build();
-
-                // Tạo bucket nếu chưa có
-                bool found = await minioClient.BucketExistsAsync(new BucketExistsArgs().WithBucket(bucketName));
-                if (!found)
-                {
-                    await minioClient.MakeBucketAsync(new MakeBucketArgs().WithBucket(bucketName));
-                }
-
-                // Tạo tên file độc nhất để không bị trùng
-                string fileName = $"avatars/user_{id}_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{extension}";
-
-                // Đẩy ảnh lên MinIO
-                using (var stream = file.OpenReadStream())
-                {
-                    var putObjectArgs = new PutObjectArgs()
-                        .WithBucket(bucketName)
-                        .WithObject(fileName)
-                        .WithStreamData(stream)
-                        .WithObjectSize(file.Length)
-                        .WithContentType(file.ContentType);
-
-                    await minioClient.PutObjectAsync(putObjectArgs);
-                }
-
-                // Cập nhật link vào Database 
-                user.AvatarUrl = $"/{bucketName}/{fileName}";
-                await _context.SaveChangesAsync();
-
-                return Ok(new
-                {
-                    message = "Cập nhật ảnh đại diện thành công!",
-                    avatarUrl = user.AvatarUrl
-                });
+                await minioClient.MakeBucketAsync(new MakeBucketArgs().WithBucket(bucketName));
             }
-            catch (Exception ex)
+
+            // Tạo tên file độc nhất để không bị trùng
+            string fileName = $"avatars/user_{id}_{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}{extension}";
+
+            // Đẩy ảnh lên MinIO
+            using (var stream = file.OpenReadStream())
             {
-                return StatusCode(500, new { message = $"Lỗi hệ thống: {ex.Message}" });
+                var putObjectArgs = new PutObjectArgs()
+                    .WithBucket(bucketName)
+                    .WithObject(fileName)
+                    .WithStreamData(stream)
+                    .WithObjectSize(file.Length)
+                    .WithContentType(file.ContentType);
+
+                await minioClient.PutObjectAsync(putObjectArgs);
             }
+
+            // Cập nhật link vào Database 
+            user.AvatarUrl = $"/{bucketName}/{fileName}";
+            await _context.SaveChangesAsync();
+
+            return Ok(new
+            {
+                message = "Cập nhật ảnh đại diện thành công!",
+                avatarUrl = user.AvatarUrl
+            });
         }
     }
 
     // Các lớp hỗ trợ nhận dữ liệu (DTO)
     public class UserRegisterDto
     {
+        [Required(ErrorMessage = "Họ tên không được để trống")]
         public string FullName { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Email không được để trống")]
+        [EmailAddress(ErrorMessage = "Email không đúng định dạng")]
         public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Mật khẩu không được để trống")]
+        [MinLength(6, ErrorMessage = "Mật khẩu phải có ít nhất 6 ký tự")]
         public string Password { get; set; } = string.Empty;
     }
 
     public class UserLoginDto
     {
+        [Required(ErrorMessage = "Email không được để trống")]
+        [EmailAddress(ErrorMessage = "Email không đúng định dạng")]
         public string Email { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Mật khẩu không được để trống")]
         public string Password { get; set; } = string.Empty;
     }
     // DTO MỚI — nhận Refresh Token từ frontend
     public class RefreshTokenDto
     {
+        [Required]
         public string RefreshToken { get; set; } = string.Empty;
     }
 }

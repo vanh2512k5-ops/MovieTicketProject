@@ -40,7 +40,8 @@ namespace MovieTicketAPI.Controllers
             var room = await _context.Rooms.FindAsync(roomId);
             if (room == null) return NotFound(new { message = "Không tìm thấy phòng chiếu!" });
 
-            // KIỂM TRA LỊCH CHIẾU TƯƠNG LAI & LỊCH CẢI TẠO
+            // Đã ẩn phần kiểm tra chặn sửa phòng theo yêu cầu
+            /*
             var currentTime = DateTime.Now;
             var hasFutureShowtimes = await _context.Showtimes.AnyAsync(s => s.RoomId == roomId && s.StartTime > currentTime);
             
@@ -56,6 +57,7 @@ namespace MovieTicketAPI.Controllers
                     return BadRequest(new { message = $"Phòng đang chờ đến thời điểm cải tạo sơ đồ ({room.RenovationScheduledAt?.ToString("dd/MM/yyyy HH:mm")}). Chưa thể sửa lúc này." });
                 }
             }
+            */
 
             // 1. Lấy danh sách sơ đồ ghế cũ
             var oldSeats = await _context.Seats.Where(s => s.RoomId == roomId && !s.IsDeleted).ToListAsync();
@@ -188,24 +190,7 @@ namespace MovieTicketAPI.Controllers
             var room = await _context.Rooms.FindAsync(roomId);
             if (room == null) return NotFound(new { message = "Không tìm thấy phòng chiếu!" });
 
-            var currentTime = DateTime.Now;
-            var latestShowtime = await _context.Showtimes
-                .Where(s => s.RoomId == roomId && s.StartTime > currentTime)
-                .OrderByDescending(s => s.StartTime)
-                .FirstOrDefaultAsync();
-
-            if (latestShowtime != null)
-            {
-                return Ok(new
-                {
-                    canEditImmediately = false,
-                    isAlreadyScheduled = room.IsUnderRenovation,
-                    scheduledAt = room.RenovationScheduledAt,
-                    latestShowtimeDate = latestShowtime.StartTime,
-                    message = $"Phòng đang có lịch chiếu đến {latestShowtime.StartTime:dd/MM/yyyy HH:mm}. Việc sửa sơ đồ sẽ có hiệu lực sau thời gian này."
-                });
-            }
-
+            // Luôn cho phép sửa sơ đồ ngay lập tức
             return Ok(new
             {
                 canEditImmediately = true,

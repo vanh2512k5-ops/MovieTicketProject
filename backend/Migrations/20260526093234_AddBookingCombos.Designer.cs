@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using MovieTicketAPI.Models;
 
@@ -11,9 +12,11 @@ using MovieTicketAPI.Models;
 namespace MovieTicketAPI.Migrations
 {
     [DbContext(typeof(MovieTicketContext))]
-    partial class MovieTicketContextModelSnapshot : ModelSnapshot
+    [Migration("20260526093234_AddBookingCombos")]
+    partial class AddBookingCombos
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -58,9 +61,6 @@ namespace MovieTicketAPI.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("BillId")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("BookingDate")
                         .HasColumnType("datetime2");

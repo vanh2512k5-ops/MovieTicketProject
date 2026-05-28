@@ -1,4 +1,4 @@
-﻿using System.Net.Sockets;
+using System.Net.Sockets;
 
 namespace MovieTicketAPI.Models
 {
@@ -10,9 +10,11 @@ namespace MovieTicketAPI.Models
         public DateTime BookingDate { get; set; } = DateTime.UtcNow;
         public decimal TotalPrice { get; set; }
         public string Status { get; set; } = "Pending"; // Pending, Paid, Cancelled
+        public string? BillId { get; set; }
 
         public User? User { get; set; }
         public Showtime? Showtime { get; set; }
         public ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
+        public ICollection<BookingCombo> BookingCombos { get; set; } = new List<BookingCombo>();
     }
 }

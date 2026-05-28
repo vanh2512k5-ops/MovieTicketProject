@@ -1,4 +1,4 @@
-﻿namespace MovieTicketAPI.Models
+namespace MovieTicketAPI.Models
 {
     public class User
     {
@@ -11,7 +11,7 @@
         
         public string? AvatarUrl { get; set; } 
 
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // Quan hệ với bảng khác
         public ICollection<Booking> Bookings { get; set; } = new List<Booking>();

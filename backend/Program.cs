@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using MovieTicketAPI.Models;
 using MovieTicketAPI.Services; // Thêm dòng này để nhận diện thư mục Services
+using MovieTicketAPI.Middleware; // Thêm middleware
 using Minio;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -54,6 +55,9 @@ builder.Services.AddSingleton<IMinioClient>(sp =>
 // Đăng ký IMovieService để hệ thống có thể sử dụng logic tính toán Rating
 builder.Services.AddScoped<IMovieService, MovieService>();
 
+// Đăng ký IHttpClientFactory (dùng để gọi Payment Gateway)
+builder.Services.AddHttpClient();
+
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -75,6 +79,9 @@ if (app.Environment.IsDevelopment())
 // 2. Kích hoạt CORS 
 app.UseCors("AllowAll");
 app.UseHttpsRedirection();
+
+// Kích hoạt Global Exception Middleware
+app.UseMiddleware<GlobalExceptionMiddleware>();
 
 app.UseAuthentication(); // Xác thực: "mày là ai?"
 app.UseAuthorization();  // Phân quyền: "mày được làm gì?"

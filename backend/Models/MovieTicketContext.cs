@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 
 namespace MovieTicketAPI.Models
@@ -18,6 +18,7 @@ namespace MovieTicketAPI.Models
         public DbSet<Showtime> Showtimes { get; set; }
         public DbSet<Ticket> Tickets { get; set; }
         public DbSet<User> Users { get; set; }
+        public DbSet<BookingCombo> BookingCombos { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -25,6 +26,9 @@ namespace MovieTicketAPI.Models
             modelBuilder.Entity<Combo>().Property(c => c.Price).HasColumnType("decimal(18,2)");
             modelBuilder.Entity<Showtime>().Property(s => s.BasePrice).HasColumnType("decimal(18,2)");
             modelBuilder.Entity<Ticket>().Property(t => t.Price).HasColumnType("decimal(18,2)");
+
+            // Global Query Filter: Tự động bỏ qua các ghế đã bị xóa mềm (IsDeleted = true)
+            modelBuilder.Entity<Seat>().HasQueryFilter(s => !s.IsDeleted);
 
             modelBuilder.Entity<Booking>()
                 .HasMany(b => b.Tickets)
@@ -34,6 +38,20 @@ namespace MovieTicketAPI.Models
             modelBuilder.Entity<Ticket>()
                 .HasOne(t => t.Seat)
                 .WithMany()
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<BookingCombo>().Property(bc => bc.Price).HasColumnType("decimal(18,2)");
+
+            modelBuilder.Entity<BookingCombo>()
+                .HasOne(bc => bc.Booking)
+                .WithMany(b => b.BookingCombos)
+                .HasForeignKey(bc => bc.BookingId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<BookingCombo>()
+                .HasOne(bc => bc.Combo)
+                .WithMany()
+                .HasForeignKey(bc => bc.ComboId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             base.OnModelCreating(modelBuilder);

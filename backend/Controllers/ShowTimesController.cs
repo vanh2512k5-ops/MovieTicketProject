@@ -90,5 +90,32 @@ namespace MovieTicketAPI.Controllers
 
             return Ok(new { Message = "Tạo lịch chiếu thành công!", ShowtimeId = showtime.Id });
         }
+
+        [HttpDelete("room/{roomId}/all-future")]
+        public async Task<IActionResult> DeleteAllFutureShowtimes(int roomId)
+        {
+            var currentTime = DateTime.Now;
+            var futureShowtimes = await _context.Showtimes
+                .Where(s => s.RoomId == roomId && s.StartTime > currentTime)
+                .ToListAsync();
+
+            if (!futureShowtimes.Any())
+            {
+                return Ok(new { Message = "Phòng chiếu này không có suất chiếu nào ở tương lai." });
+            }
+
+            var showtimeIds = futureShowtimes.Select(s => s.Id).ToList();
+            var hasBookings = await _context.Bookings.AnyAsync(b => showtimeIds.Contains(b.ShowtimeId));
+            
+            if (hasBookings)
+            {
+                return BadRequest("Không thể xóa các suất chiếu này vì đã có khách hàng mua vé/đặt chỗ cho khung giờ này!");
+            }
+
+            _context.Showtimes.RemoveRange(futureShowtimes);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = $"Đã xóa thành công {futureShowtimes.Count} suất chiếu tương lai của phòng này." });
+        }
     }
 }

@@ -41,7 +41,7 @@ namespace MovieTicketAPI.Controllers
             // Ghi đè thông tin người dùng từ token để chống giả mạo
             review.UserId = userId;
             review.UserName = user.FullName;
-            review.CreatedAt = DateTime.Now;
+            review.CreatedAt = DateTime.UtcNow;
 
             _context.Reviews.Add(review);
             await _context.SaveChangesAsync();

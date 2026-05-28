@@ -199,22 +199,21 @@ namespace MovieTicketAPI.Controllers
                         Name = "Combo Solo",
                         Description = "1 Bắp ngọt (Lớn) + 1 Nước ngọt (Lớn)",
                         Price = 75000, 
-                        // Đảm bảo đuôi .jpg hoặc .png khớp với tên sếp vừa up lên MinIO nhé
-                        ImageUrl = "http://192.168.0.120:9000/movietickets/combo-solo.png"
+                        ImageUrl = "/movietickets/combo-solo.png"
                     },
                     new Combo
                     {
                         Name = "Combo Couple",
                         Description = "1 Bắp ngọt (Lớn) + 2 Nước ngọt (Lớn)",
                         Price = 105000,
-                        ImageUrl = "http://192.168.0.120:9000/movietickets/combo-couple.png"
+                        ImageUrl = "/movietickets/combo-couple.png"
                     },
                     new Combo
                     {
                         Name = "Combo Family Party",
                         Description = "2 Bắp (Lớn) + 4 Nước (Lớn) + 2 Snack",
                         Price = 210000,
-                        ImageUrl = "http://192.168.0.120:9000/movietickets/combo-family.png"
+                        ImageUrl = "/movietickets/combo-family.png"
                     }
                 };
 
