@@ -41,12 +41,18 @@ export default function ConcessionsScreen() {
   // 👇 HÀM XỬ LÝ GHÉP LINK ẢNH MINIO 👇
   const getImageUrl = (path?: string) => {
     if (!path) return "https://via.placeholder.com/150x150.png?text=No+Image";
-    if (path.startsWith("http") || path.startsWith("data:image")) return path;
+    
+    // Gọi IP MinIO từ file .env/config
+    const minioBaseUrl = require('../../utils/config').MINIO_URL;
 
-    // Gọi IP MinIO từ file .env
-    const minioBaseUrl =
-      require('../../utils/config').MINIO_URL;
-    return `${minioBaseUrl}${path}`;
+    // Sửa lỗi hardcode IP cũ trong DB (tránh ảnh trắng tinh khi đổi IP)
+    if (path.includes(":9000/")) {
+      const parts = path.split(":9000");
+      return `${minioBaseUrl}${parts[1]}`;
+    }
+
+    if (path.startsWith("http") || path.startsWith("data:image")) return path;
+    return path.startsWith("/") ? `${minioBaseUrl}${path}` : `${minioBaseUrl}/${path}`;
   };
 
   useEffect(() => {
@@ -162,7 +168,7 @@ export default function ConcessionsScreen() {
           style={styles.checkoutButton}
           onPress={() => {
             router.push({
-              pathname: "/payment" as any,
+              pathname: "/movie/payment" as any,
               params: {
                 showtimeId,
                 movieTitle,

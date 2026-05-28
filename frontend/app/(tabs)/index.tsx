@@ -16,6 +16,7 @@ import {
 } from "react-native";
 
 import axiosClient from "@/utils/axiosClient";
+import { Skeleton } from "@/components/Skeleton";
 interface Movie {
   id: number;
   title: string;
@@ -192,7 +193,7 @@ export default function HomeScreen() {
             <Image
               source={{
                 uri: isLoggedIn
-                  ? getAvatarUrl(userAvatar || undefined) // 👇 Đã tích hợp hàm lấy ảnh động
+                  ? getAvatarUrl(userAvatar || undefined) // 
                   : "https://via.placeholder.com/100x100.png?text=Guest",
               }}
               style={styles.avatar}
@@ -305,11 +306,24 @@ export default function HomeScreen() {
         <Text style={styles.sectionTitle}>🎬 PHIM ĐANG CHIẾU</Text>
 
         {isLoading ? (
-          <ActivityIndicator
-            size="large"
-            color="#E53E3E"
-            style={{ marginTop: 20 }}
-          />
+          <View style={styles.movieListContainer}>
+            <View style={styles.row}>
+              <View style={styles.movieCard}>
+                <Skeleton style={styles.posterContainer} />
+                <View style={styles.movieInfo}>
+                  <Skeleton style={{ height: 15, width: "80%", marginBottom: 8 }} />
+                  <Skeleton style={{ height: 12, width: "50%" }} />
+                </View>
+              </View>
+              <View style={styles.movieCard}>
+                <Skeleton style={styles.posterContainer} />
+                <View style={styles.movieInfo}>
+                  <Skeleton style={{ height: 15, width: "80%", marginBottom: 8 }} />
+                  <Skeleton style={{ height: 12, width: "50%" }} />
+                </View>
+              </View>
+            </View>
+          </View>
         ) : (
           <View style={styles.movieListContainer}>
             <FlatList

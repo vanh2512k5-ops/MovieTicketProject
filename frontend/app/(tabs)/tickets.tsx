@@ -13,6 +13,12 @@ import { useFocusEffect, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axiosClient from "@/utils/axiosClient";
 
+interface ComboInfo {
+  name: string;
+  quantity: number;
+  price: number;
+}
+
 interface Ticket {
   bookingId: number;
   movieTitle: string;
@@ -21,6 +27,7 @@ interface Ticket {
   roomName: string;
   showTime: string;
   seats: string[];
+  combos: ComboInfo[];
   status: string;
   totalPrice: number;
 }
@@ -121,6 +128,11 @@ export default function TicketsScreen() {
           <View style={styles.seatInfo}>
             <Text style={styles.label}>{item.roomName}</Text>
             <Text style={styles.value}>Ghế: {item.seats.join(", ")}</Text>
+            {item.combos && item.combos.length > 0 && (
+              <Text style={styles.valueCombo}>
+                Bắp nước: {item.combos.map(c => `${c.quantity}x ${c.name}`).join(", ")}
+              </Text>
+            )}
           </View>
 
           {activeTab === "upcoming" ? (
@@ -331,6 +343,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   value: { color: "#F6E05E", fontSize: 16, fontWeight: "bold" },
+  valueCombo: { color: "#A0AEC0", fontSize: 13, marginTop: 4 },
   qrButton: {
     backgroundColor: "#FFF",
     paddingHorizontal: 15,

@@ -1,5 +1,6 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Alert } from 'react-native';
 
 import { API_URL } from './config';
 
@@ -86,7 +87,28 @@ axiosClient.interceptors.response.use(
       }
     }
 
-    // Lỗi khác (500, 404...) → ném lỗi ra để nơi gọi tự xử lý
+    // Lỗi khác (500, 400...) → tự động hiển thị thông báo lỗi (LOẠI BỎ 404 vì 404 thường dùng cho UI trống)
+    if (error.response && error.response.status !== 401 && error.response.status !== 404) {
+      let message = "Đã xảy ra lỗi kết nối!";
+      
+      // ASP.NET có thể trả về string thẳng, hoặc JSON có thuộc tính message / Message / title
+      if (typeof error.response.data === 'string') {
+        message = error.response.data;
+      } else if (error.response.data?.message) {
+        message = error.response.data.message;
+      } else if (error.response.data?.Message) {
+        message = error.response.data.Message;
+      } else if (error.response.data?.title) {
+        message = error.response.data.title;
+      }
+
+      // Tránh lặp Alert nếu có quá nhiều request lỗi cùng lúc
+      if (!error.config._daHienThiLoi) {
+        Alert.alert("Thông báo", message);
+        error.config._daHienThiLoi = true;
+      }
+    }
+
     return Promise.reject(error);
   }
 );

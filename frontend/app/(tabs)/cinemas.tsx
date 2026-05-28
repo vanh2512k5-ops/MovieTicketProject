@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, Image, TextInput, TouchableOpacity, SafeAreaView, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import axiosClient from '@/utils/axiosClient';
+import { Skeleton } from '@/components/Skeleton';
 
 interface Cinema {
   id: number;
@@ -117,9 +118,18 @@ export default function CinemasScreen() {
       </View>
 
       {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#E53E3E" />
-          <Text style={styles.loadingText}>Đang tải danh sách rạp...</Text>
+        <View style={styles.listContainer}>
+          <View style={styles.cinemaCard}>
+            <Skeleton style={styles.cinemaImage} />
+            <View style={styles.cinemaInfo}>
+              <Skeleton style={{ height: 20, width: "70%", marginBottom: 8 }} />
+              <Skeleton style={{ height: 14, width: "100%", marginBottom: 15 }} />
+              <View style={styles.cardFooter}>
+                <Skeleton style={{ height: 14, width: "40%" }} />
+                <Skeleton style={{ height: 28, width: 80, borderRadius: 8 }} />
+              </View>
+            </View>
+          </View>
         </View>
       ) : (
         <FlatList
