@@ -107,6 +107,9 @@ namespace MovieTicketAPI.Controllers
             if (bookedSeats.Any())
                 return BadRequest(new { Message = "Ghế đã có người đặt!", ConflictedSeatIds = bookedSeats });
 
+            // Load cấu hình phụ thu
+            var activeRules = await _context.PricingRules.Where(r => r.IsActive).ToListAsync();
+
             // Lấy danh sách ghế đang chọn để tính tiền và lấy loại ghế
             var selectedSeats = await _context.Seats
                 .Where(s => request.SeatIds.Contains(s.Id))
@@ -114,17 +117,27 @@ namespace MovieTicketAPI.Controllers
 
             decimal totalSeatPrice = 0;
             var tickets = new List<Ticket>();
+            decimal basePrice = showtime.BasePrice > 0 ? showtime.BasePrice : 85000; // Fallback nếu dữ liệu cũ chưa có BasePrice
+
             foreach (var seat in selectedSeats)
             {
-                decimal price = 85000; // Normal
-                if (seat.Type == SeatType.Couple) price = 210000;
-                else if (seat.Type == SeatType.VIP) price = 105000;
+                decimal currentSeatPrice = basePrice;
+                var priceDetails = new Dictionary<string, decimal> { { "BasePrice", basePrice } };
 
-                totalSeatPrice += price;
+                // Phụ thu theo loại ghế
+                var seatRule = activeRules.FirstOrDefault(r => r.RuleType == "SeatType" && r.RuleKey == seat.Type.ToString());
+                if (seatRule != null)
+                {
+                    currentSeatPrice += seatRule.SurchargeAmount;
+                    priceDetails.Add($"Surcharge_{seat.Type}", seatRule.SurchargeAmount);
+                }
+
+                totalSeatPrice += currentSeatPrice;
                 tickets.Add(new Ticket
                 {
                     SeatId = seat.Id,
-                    Price = price
+                    Price = currentSeatPrice,
+                    PriceDetails = JsonSerializer.Serialize(priceDetails)
                 });
             }
 
