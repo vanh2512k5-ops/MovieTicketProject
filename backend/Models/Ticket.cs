@@ -1,4 +1,4 @@
-﻿namespace MovieTicketAPI.Models
+namespace MovieTicketAPI.Models
 {
     public class Ticket
     {
@@ -6,6 +6,7 @@
         public int BookingId { get; set; }
         public int SeatId { get; set; }
         public decimal Price { get; set; }
+        public string? PriceDetails { get; set; }
 
         public Booking? Booking { get; set; }
         public Seat? Seat { get; set; }

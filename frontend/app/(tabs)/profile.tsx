@@ -134,6 +134,18 @@ export default function ProfileScreen() {
         )}
       </View>
 
+      {user?.role === 'Admin' && (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Quản trị hệ thống</Text>
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/admin/room-list' as any)}>
+            <Text style={styles.menuText}>🛠 Quản lý Phòng chiếu</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/admin/pricing-rules' as any)}>
+            <Text style={styles.menuText}>💰 Cấu hình Giá vé & Phụ thu</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Quản lý tài khoản</Text>
         <TouchableOpacity style={styles.menuItem} onPress={() => !user && Alert.alert("Thông báo", "Vui lòng đăng nhập!")}>
