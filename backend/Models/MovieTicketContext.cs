@@ -19,6 +19,7 @@ namespace MovieTicketAPI.Models
         public DbSet<Ticket> Tickets { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<BookingCombo> BookingCombos { get; set; }
+        public DbSet<PricingRule> PricingRules { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -26,6 +27,7 @@ namespace MovieTicketAPI.Models
             modelBuilder.Entity<Combo>().Property(c => c.Price).HasColumnType("decimal(18,2)");
             modelBuilder.Entity<Showtime>().Property(s => s.BasePrice).HasColumnType("decimal(18,2)");
             modelBuilder.Entity<Ticket>().Property(t => t.Price).HasColumnType("decimal(18,2)");
+            modelBuilder.Entity<PricingRule>().Property(p => p.SurchargeAmount).HasColumnType("decimal(18,2)");
 
             // Global Query Filter: Tự động bỏ qua các ghế đã bị xóa mềm (IsDeleted = true)
             modelBuilder.Entity<Seat>().HasQueryFilter(s => !s.IsDeleted);
