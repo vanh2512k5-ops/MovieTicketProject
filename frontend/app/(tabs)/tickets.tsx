@@ -50,7 +50,7 @@ export default function TicketsScreen() {
   const fetchMyTickets = async (userId: number) => {
     setIsLoading(true);
     try {
-      const response = await axiosClient.get(`/Bookings/user/${userId}`);
+      const response = await axiosClient.get(`/Bookings/my-bookings`);
       setTickets(response.data);
     } catch (error: any) {
       if (error.response?.status === 404) {
