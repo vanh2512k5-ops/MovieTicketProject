@@ -14,8 +14,9 @@ export default function AdminShowtimes() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [formData, setFormData] = useState({ movieId: "", roomId: "", startDate: "", startTime: "", basePrice: "85000" });
   
-  // Trạng thái cho dropdown chọn phòng
+  // Trạng thái cho dropdown chọn phòng/phim
   const [roomDropdownVisible, setRoomDropdownVisible] = useState(false);
+  const [movieDropdownVisible, setMovieDropdownVisible] = useState(false);
 
   useEffect(() => {
     fetchMoviesAndCinemas();
@@ -60,9 +61,19 @@ export default function AdminShowtimes() {
   const openForm = (st?: any) => {
     if (st) {
       setEditingId(st.showtimeId);
-      // Tìm movieId và roomId không có sẵn trong object st (do API GetShowtimes k trả về full), tạm cho form trống hoặc phải sửa backend. Tạm thời chỉ cho phép Thêm mới hoặc Xóa. Sửa thì hơi phức tạp UI vì API GET ko trả đủ.
-      Alert.alert("Chức năng đang phát triển", "Vui lòng xóa và tạo mới suất chiếu thay vì sửa.");
-      return;
+      const stDate = new Date(st.startTime);
+      // Giữ nguyên múi giờ Local khi parse sang text
+      const localDate = new Date(stDate.getTime() - (stDate.getTimezoneOffset() * 60000));
+      const dateString = localDate.toISOString().split('T')[0];
+      const timeString = localDate.toISOString().split('T')[1].substring(0, 5);
+      
+      setFormData({
+        movieId: st.movieId.toString(),
+        roomId: st.roomId.toString(),
+        startDate: dateString,
+        startTime: timeString,
+        basePrice: st.basePrice.toString()
+      });
     } else {
       setEditingId(null);
       setFormData({ movieId: selectedMovie ? selectedMovie.toString() : "", roomId: "", startDate: "", startTime: "", basePrice: "85000" });
@@ -102,8 +113,13 @@ export default function AdminShowtimes() {
         basePrice: parseFloat(formData.basePrice)
       };
 
-      await axiosClient.post("/Showtimes", payload);
-      Alert.alert("Thành công", "Tạo suất chiếu thành công!");
+      if (editingId) {
+        await axiosClient.put(`/Showtimes/${editingId}`, payload);
+        Alert.alert("Thành công", "Cập nhật suất chiếu thành công!");
+      } else {
+        await axiosClient.post("/Showtimes", payload);
+        Alert.alert("Thành công", "Tạo suất chiếu thành công!");
+      }
       setModalVisible(false);
       if (selectedMovie === parseInt(formData.movieId)) {
         fetchShowtimes(selectedMovie);
@@ -165,18 +181,46 @@ export default function AdminShowtimes() {
                 <Text style={styles.time}>{new Date(item.startTime).toLocaleString('vi-VN')}</Text>
                 <Text style={styles.price}>Giá gốc: {item.basePrice.toLocaleString()} đ</Text>
               </View>
-              <TouchableOpacity style={styles.delBtn} onPress={() => deleteShowtime(item.showtimeId)}>
-                <Text style={styles.btnText}>Xóa</Text>
-              </TouchableOpacity>
+              <View style={{flexDirection: "row", gap: 10}}>
+                <TouchableOpacity style={[styles.delBtn, {backgroundColor: '#D69E2E'}]} onPress={() => openForm(item)}>
+                  <Text style={styles.btnText}>Sửa</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.delBtn} onPress={() => deleteShowtime(item.showtimeId)}>
+                  <Text style={styles.btnText}>Xóa</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
           ListEmptyComponent={<Text style={{color: '#A0AEC0', textAlign: 'center'}}>Chưa có suất chiếu nào.</Text>}
         />
       </View>
 
-      {/* Modal Thêm Suất Chiếu & Chọn Phòng */}
-      <Modal visible={modalVisible || roomDropdownVisible} animationType="slide" transparent>
-        {roomDropdownVisible ? (
+      {/* Modal Thêm Suất Chiếu & Chọn Phòng/Phim */}
+      <Modal visible={modalVisible || roomDropdownVisible || movieDropdownVisible} animationType="slide" transparent>
+        {movieDropdownVisible ? (
+          <View style={styles.dropdownModalOverlay}>
+            <View style={styles.dropdownModalContent}>
+              <Text style={styles.modalTitle}>CHỌN PHIM</Text>
+              <ScrollView keyboardShouldPersistTaps="handled">
+                {movies.map(m => (
+                  <TouchableOpacity 
+                    key={m.id} 
+                    style={styles.dropdownItem}
+                    onPress={() => {
+                      setFormData(prev => ({...prev, movieId: m.id.toString()}));
+                      setMovieDropdownVisible(false);
+                    }}
+                  >
+                    <Text style={{color: '#FFF', fontSize: 16}}>{m.title}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+              <TouchableOpacity style={[styles.cancelBtn, {marginTop: 15}]} onPress={() => setMovieDropdownVisible(false)}>
+                <Text style={styles.btnText}>ĐÓNG</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : roomDropdownVisible ? (
           <View style={styles.dropdownModalOverlay}>
             <View style={styles.dropdownModalContent}>
               <Text style={styles.modalTitle}>CHỌN PHÒNG CHIẾU</Text>
@@ -208,8 +252,17 @@ export default function AdminShowtimes() {
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>THÊM SUẤT CHIẾU</Text>
               <ScrollView keyboardShouldPersistTaps="handled">
-                <Text style={styles.label}>ID Phim</Text>
-                <TextInput style={styles.input} placeholder="ID Phim" placeholderTextColor="#A0AEC0" value={formData.movieId} onChangeText={t => setFormData({...formData, movieId: t})} keyboardType="numeric" />
+                <Text style={styles.label}>Phim</Text>
+                <TouchableOpacity 
+                  style={styles.dropdownToggle} 
+                  onPress={() => setMovieDropdownVisible(true)}
+                >
+                  <Text style={{color: formData.movieId ? '#FFF' : '#A0AEC0'}}>
+                    {formData.movieId 
+                      ? movies.find(m => m.id.toString() === formData.movieId)?.title 
+                      : "Chạm để chọn phim..."}
+                  </Text>
+                </TouchableOpacity>
                 
                 <Text style={styles.label}>Phòng chiếu</Text>
                 <TouchableOpacity 

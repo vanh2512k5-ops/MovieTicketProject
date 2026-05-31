@@ -65,6 +65,15 @@ export default function AdminTabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="combos"
+        options={{
+          title: "Combo",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={28} name="bag.fill" color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

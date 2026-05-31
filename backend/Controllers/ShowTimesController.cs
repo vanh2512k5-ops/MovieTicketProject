@@ -37,6 +37,8 @@ namespace MovieTicketAPI.Controllers
                     schedules = g.Select(s => new
                     {
                         showtimeId = s.Id,
+                        movieId = s.MovieId,
+                        roomId = s.RoomId,
                         roomName = s.Room.Name,
                         startTime = s.StartTime,
                         basePrice = s.BasePrice
@@ -129,6 +131,7 @@ namespace MovieTicketAPI.Controllers
             return Ok(new { Message = "Đã xóa suất chiếu!" });
         }
 
+        [Authorize(Roles = "Admin")]
         [HttpDelete("room/{roomId}/all-future")]
         public async Task<IActionResult> DeleteAllFutureShowtimes(int roomId)
         {

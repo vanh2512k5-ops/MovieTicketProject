@@ -91,6 +91,7 @@ namespace MovieTicketAPI.Controllers
             var refreshToken = new JwtSecurityToken(
                 issuer: _config["Jwt:Issuer"],
                 audience: _config["Jwt:Audience"],
+                claims: claims,
                 expires: DateTime.UtcNow.AddDays(
                     double.Parse(_config["Jwt:RefreshTokenExpiresInDays"]!)
                 ),
@@ -146,10 +147,13 @@ namespace MovieTicketAPI.Controllers
                     out SecurityToken validatedToken
                 );
 
+                var jwtToken = (JwtSecurityToken)validatedToken;
+
                 // Refresh Token còn hợp lệ → Tạo Access Token mới
                 var newAccessToken = new JwtSecurityToken(
                     issuer: _config["Jwt:Issuer"],
                     audience: _config["Jwt:Audience"],
+                    claims: jwtToken.Claims,
                     expires: DateTime.UtcNow.AddMinutes(
                         double.Parse(_config["Jwt:ExpiresInMinutes"]!)
                     ),

@@ -92,8 +92,16 @@ export default function PaymentScreen() {
       setQrUrl(newQr);
       setStep("qr");
 
-      // Bắt đầu polling mỗi 3 giây
+      // Bắt đầu polling mỗi 3 giây (timeout sau 10 phút)
+      const maxRetries = 200;
+      let attempts = 0;
       pollingRef.current = setInterval(async () => {
+        attempts++;
+        if (attempts > maxRetries) {
+          clearInterval(pollingRef.current!);
+          Alert.alert("Thông báo", "Hết thời gian chờ thanh toán.");
+          return;
+        }
         try {
           const statusRes = await axiosClient.get(`/Bookings/${newId}/status`);
           if (statusRes.data.status === "Paid") {

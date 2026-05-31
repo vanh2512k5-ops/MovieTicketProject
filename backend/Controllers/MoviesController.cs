@@ -270,7 +270,7 @@ namespace MovieTicketAPI.Controllers
 
         // 9. HÀM "ÉP XUNG" POSTER: NÉN LẠI TOÀN BỘ POSTER CŨ SANG WEBP 800PX
         // Tạm thời tắt Authorize để bạn dễ dàng gọi từ Swagger
-        // [Authorize(Roles = "Admin")]
+        [Authorize(Roles = "Admin")]
         [HttpPost("compress-old-posters")]
         public async Task<IActionResult> CompressOldPosters([FromServices] IMinioClient minioClient, [FromServices] IConfiguration config)
         {
