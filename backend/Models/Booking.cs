@@ -11,6 +11,8 @@ namespace MovieTicketAPI.Models
         public decimal TotalPrice { get; set; }
         public string Status { get; set; } = "Pending"; // Pending, Paid, Cancelled
         public string? BillId { get; set; }
+        // Thời điểm booking Pending sẽ tự động hết hạn (null = không giới hạn)
+        public DateTime? ExpiresAt { get; set; }
 
         public User? User { get; set; }
         public Showtime? Showtime { get; set; }

@@ -55,6 +55,9 @@ builder.Services.AddSingleton<IMinioClient>(sp =>
 // Đăng ký IMovieService để hệ thống có thể sử dụng logic tính toán Rating
 builder.Services.AddScoped<IMovieService, MovieService>();
 
+// Đăng ký Background Service tự động hủy Booking Pending quá hạn (chạy nền mỗi 1 phút)
+builder.Services.AddHostedService<BookingExpiryService>();
+
 // Đăng ký IHttpClientFactory (dùng để gọi Payment Gateway)
 builder.Services.AddHttpClient();
 

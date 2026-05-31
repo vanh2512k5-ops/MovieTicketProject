@@ -203,7 +203,9 @@ namespace MovieTicketAPI.Controllers
                 ShowtimeId  = request.ShowtimeId,
                 BookingDate = DateTime.UtcNow,
                 TotalPrice  = totalSeatPrice + totalComboPrice,
-                Status      = "Pending"
+                Status      = "Pending",
+                // Booking Pending sẽ tự hết hạn sau 10 phút nếu chưa thanh toán
+                ExpiresAt   = DateTime.UtcNow.AddMinutes(10)
             };
 
             _context.Bookings.Add(booking);
@@ -336,8 +338,9 @@ namespace MovieTicketAPI.Controllers
             if (booking == null)
                 return NotFound(new { Message = "Không tìm thấy booking." });
 
-            // Cập nhật trạng thái
-            booking.Status = "Paid";
+            // Cập nhật trạng thái và xóa hạn hết hạn (booking đã được thanh toán thành công)
+            booking.Status    = "Paid";
+            booking.ExpiresAt = null;
             await _context.SaveChangesAsync();
 
             Console.WriteLine($"[BE] ✅ Booking #{bookingId} đã được thanh toán thành công.");
@@ -401,6 +404,34 @@ namespace MovieTicketAPI.Controllers
                 return NotFound(new { Message = "Bạn chưa có lịch sử đặt vé nào." });
 
             return Ok(bookings);
+        }
+
+        // ==========================================
+        // 5. HỦY VÉ (Dành cho User)
+        // ==========================================
+        [Authorize]
+        [HttpPut("{id}/cancel")]
+        public async Task<IActionResult> CancelBooking(int id)
+        {
+            var currentUserId = User.GetUserId();
+            if (currentUserId == null) return Unauthorized();
+
+            var booking = await _context.Bookings
+                .Include(b => b.Showtime)
+                .FirstOrDefaultAsync(b => b.Id == id && b.UserId == currentUserId.Value);
+
+            if (booking == null) return NotFound("Không tìm thấy vé.");
+
+            if (booking.Showtime == null || booking.Showtime.StartTime <= DateTime.Now)
+                return BadRequest("Không thể hủy vé của suất chiếu đã hoặc đang diễn ra.");
+
+            if (booking.Status == "Cancelled")
+                return BadRequest("Vé này đã được hủy trước đó.");
+
+            booking.Status = "Cancelled";
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = "Đã hủy vé thành công." });
         }
     }
 }
