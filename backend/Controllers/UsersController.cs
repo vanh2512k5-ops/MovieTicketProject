@@ -239,6 +239,62 @@ namespace MovieTicketAPI.Controllers
                 avatarUrl = user.AvatarUrl
             });
         }
+
+        // ==========================================
+        // API CHO ADMIN QUẢN LÝ USER
+        // ==========================================
+
+        [Authorize(Roles = "Admin")]
+        [HttpGet]
+        public async Task<IActionResult> GetAllUsers()
+        {
+            var users = await _context.Users
+                .Select(u => new { u.Id, u.FullName, u.Email, u.Phone, u.Role, u.CreatedAt })
+                .ToListAsync();
+            return Ok(users);
+        }
+
+        public class UpdateRoleRequest
+        {
+            public string Role { get; set; } = string.Empty;
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPut("{id}/role")]
+        public async Task<IActionResult> UpdateUserRole(int id, [FromBody] UpdateRoleRequest request)
+        {
+            if (request.Role != "Admin" && request.Role != "User")
+                return BadRequest("Quyền không hợp lệ!");
+
+            var user = await _context.Users.FindAsync(id);
+            if (user == null) return NotFound("Không tìm thấy người dùng!");
+
+            user.Role = request.Role;
+            await _context.SaveChangesAsync();
+            return Ok(new { Message = $"Đã cập nhật quyền thành {request.Role}" });
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            var user = await _context.Users.FindAsync(id);
+            if (user == null) return NotFound("Không tìm thấy người dùng!");
+
+            // Không cho phép Admin tự xóa chính mình
+            var currentUserId = User.GetUserId();
+            if (currentUserId != null && currentUserId.Value == id)
+            {
+                return BadRequest("Bạn không thể tự xóa tài khoản của chính mình!");
+            }
+
+            var hasBookings = await _context.Bookings.AnyAsync(b => b.UserId == id);
+            if (hasBookings) return BadRequest("Không thể xóa người dùng này vì họ đã có lịch sử đặt vé!");
+
+            _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+            return Ok(new { Message = "Đã xóa người dùng thành công!" });
+        }
     }
 
     // Các lớp hỗ trợ nhận dữ liệu (DTO)

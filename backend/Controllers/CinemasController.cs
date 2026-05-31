@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MovieTicketAPI.Models; // Đã sửa: Trỏ đúng vào thư mục Models của sếp
 
@@ -32,6 +33,62 @@ namespace MovieTicketAPI.Controllers
                 .ToListAsync();
 
             return Ok(cinemas);
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPost]
+        public async Task<IActionResult> CreateCinema([FromBody] Cinema cinema)
+        {
+            _context.Cinemas.Add(cinema);
+            await _context.SaveChangesAsync();
+
+            // Tự động tạo 3 phòng chiếu mặc định cho Rạp mới
+            for (int i = 1; i <= 3; i++)
+            {
+                _context.Rooms.Add(new Room
+                {
+                    CinemaId = cinema.Id,
+                    Name = $"Phòng {i}",
+                    Type = RoomType.Regular,
+                    TotalRows = 10,
+                    TotalColumns = 10,
+                    IsLayoutConfigured = false
+                });
+            }
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = "Thêm rạp thành công (Đã tự động tạo 3 phòng chiếu)!", Cinema = cinema });
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateCinema(int id, [FromBody] Cinema updatedCinema)
+        {
+            if (id != updatedCinema.Id) return BadRequest("ID rạp không khớp");
+
+            var cinema = await _context.Cinemas.FindAsync(id);
+            if (cinema == null) return NotFound("Không tìm thấy rạp!");
+
+            cinema.Name = updatedCinema.Name;
+            cinema.Address = updatedCinema.Address;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { Message = "Cập nhật rạp thành công!" });
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteCinema(int id)
+        {
+            var cinema = await _context.Cinemas.FindAsync(id);
+            if (cinema == null) return NotFound("Không tìm thấy rạp!");
+
+            var hasRooms = await _context.Rooms.AnyAsync(r => r.CinemaId == id);
+            if (hasRooms) return BadRequest("Không thể xóa rạp này vì rạp đã có phòng chiếu!");
+
+            _context.Cinemas.Remove(cinema);
+            await _context.SaveChangesAsync();
+            return Ok(new { Message = "Đã xóa rạp thành công!" });
         }
     }
 }

@@ -71,7 +71,7 @@ namespace MovieTicketAPI.Controllers
             if (request.SeatIds == null || !request.SeatIds.Any())
                 return BadRequest("Vui lòng chọn ít nhất 1 ghế.");
 
-            var showtime = await _context.Showtimes.FindAsync(request.ShowtimeId);
+            var showtime = await _context.Showtimes.Include(s => s.Room).FirstOrDefaultAsync(s => s.Id == request.ShowtimeId);
             if (showtime == null) return NotFound("Không tìm thấy suất chiếu.");
 
             var currentUserId = User.GetUserId();
@@ -118,11 +118,43 @@ namespace MovieTicketAPI.Controllers
             decimal totalSeatPrice = 0;
             var tickets = new List<Ticket>();
             decimal basePrice = showtime.BasePrice > 0 ? showtime.BasePrice : 85000; // Fallback nếu dữ liệu cũ chưa có BasePrice
+            
+            // Xử lý chung: Format và TimeFrame cho suất chiếu
+            var formatRule = showtime.Room != null ? activeRules.FirstOrDefault(r => r.RuleType == "Format" && r.RuleKey == showtime.Room.Type.ToString()) : null;
+            
+            bool isWeekend = showtime.StartTime.DayOfWeek == DayOfWeek.Saturday || showtime.StartTime.DayOfWeek == DayOfWeek.Sunday;
+            var weekendRule = isWeekend ? activeRules.FirstOrDefault(r => r.RuleType == "TimeFrame" && r.RuleKey == "Weekend") : null;
+            
+            var morningRule = showtime.StartTime.Hour < 12 ? activeRules.FirstOrDefault(r => r.RuleType == "TimeFrame" && r.RuleKey == "Morning") : null;
+            var eveningRule = showtime.StartTime.Hour >= 18 ? activeRules.FirstOrDefault(r => r.RuleType == "TimeFrame" && r.RuleKey == "Evening") : null;
 
             foreach (var seat in selectedSeats)
             {
                 decimal currentSeatPrice = basePrice;
                 var priceDetails = new Dictionary<string, decimal> { { "BasePrice", basePrice } };
+
+                if (formatRule != null)
+                {
+                    currentSeatPrice += formatRule.SurchargeAmount;
+                    priceDetails.Add($"Format_{showtime.Room.Type}", formatRule.SurchargeAmount);
+                }
+
+                if (weekendRule != null)
+                {
+                    currentSeatPrice += weekendRule.SurchargeAmount;
+                    priceDetails.Add("TimeFrame_Weekend", weekendRule.SurchargeAmount);
+                }
+
+                if (morningRule != null)
+                {
+                    currentSeatPrice += morningRule.SurchargeAmount;
+                    priceDetails.Add("TimeFrame_Morning", morningRule.SurchargeAmount);
+                }
+                else if (eveningRule != null)
+                {
+                    currentSeatPrice += eveningRule.SurchargeAmount;
+                    priceDetails.Add("TimeFrame_Evening", eveningRule.SurchargeAmount);
+                }
 
                 // Phụ thu theo loại ghế
                 var seatRule = activeRules.FirstOrDefault(r => r.RuleType == "SeatType" && r.RuleKey == seat.Type.ToString());

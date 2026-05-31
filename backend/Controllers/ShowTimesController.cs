@@ -91,6 +91,44 @@ namespace MovieTicketAPI.Controllers
             return Ok(new { Message = "Tạo lịch chiếu thành công!", ShowtimeId = showtime.Id });
         }
 
+        [Authorize(Roles = "Admin")]
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateShowtime(int id, [FromBody] CreateShowtimeRequest request)
+        {
+            var showtime = await _context.Showtimes.FindAsync(id);
+            if (showtime == null) return NotFound("Không tìm thấy suất chiếu!");
+
+            var hasBookings = await _context.Bookings.AnyAsync(b => b.ShowtimeId == id);
+            if (hasBookings) return BadRequest("Không thể sửa suất chiếu đã có người mua vé!");
+
+            var isConflict = await _context.Showtimes.AnyAsync(s =>
+                s.Id != id && s.RoomId == request.RoomId && s.StartTime == request.StartTime);
+            if (isConflict) return BadRequest("Khung giờ này đã bị trùng với phim khác trong phòng!");
+
+            showtime.MovieId = request.MovieId;
+            showtime.RoomId = request.RoomId;
+            showtime.StartTime = request.StartTime;
+            showtime.BasePrice = request.BasePrice;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { Message = "Cập nhật suất chiếu thành công!" });
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteShowtime(int id)
+        {
+            var showtime = await _context.Showtimes.FindAsync(id);
+            if (showtime == null) return NotFound("Không tìm thấy suất chiếu!");
+
+            var hasBookings = await _context.Bookings.AnyAsync(b => b.ShowtimeId == id);
+            if (hasBookings) return BadRequest("Không thể xóa suất chiếu đã có người mua vé!");
+
+            _context.Showtimes.Remove(showtime);
+            await _context.SaveChangesAsync();
+            return Ok(new { Message = "Đã xóa suất chiếu!" });
+        }
+
         [HttpDelete("room/{roomId}/all-future")]
         public async Task<IActionResult> DeleteAllFutureShowtimes(int roomId)
         {

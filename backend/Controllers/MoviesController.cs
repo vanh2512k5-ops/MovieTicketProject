@@ -72,6 +72,42 @@ namespace MovieTicketAPI.Controllers
         }
 
         [Authorize(Roles = "Admin")]
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateMovie(int id, [FromBody] Movie updatedMovie)
+        {
+            if (id != updatedMovie.Id) return BadRequest("ID phim không khớp");
+
+            var movie = await _context.Movies.FindAsync(id);
+            if (movie == null) return NotFound("Không tìm thấy phim!");
+
+            movie.Title = updatedMovie.Title;
+            movie.Description = updatedMovie.Description;
+            movie.Duration = updatedMovie.Duration;
+            movie.ReleaseDate = updatedMovie.ReleaseDate;
+            movie.Genre = updatedMovie.Genre;
+            movie.AgeRestriction = updatedMovie.AgeRestriction;
+
+            await _context.SaveChangesAsync();
+            return Ok(new { Message = "Cập nhật phim thành công!" });
+        }
+
+        [Authorize(Roles = "Admin")]
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteMovie(int id)
+        {
+            var movie = await _context.Movies.FindAsync(id);
+            if (movie == null) return NotFound("Không tìm thấy phim!");
+
+            // Kiểm tra xem phim đã có suất chiếu chưa
+            var hasShowtimes = await _context.Showtimes.AnyAsync(s => s.MovieId == id);
+            if (hasShowtimes) return BadRequest("Không thể xóa phim này vì đã có suất chiếu!");
+
+            _context.Movies.Remove(movie);
+            await _context.SaveChangesAsync();
+            return Ok(new { Message = "Đã xóa phim thành công!" });
+        }
+
+        [Authorize(Roles = "Admin")]
         [HttpPost("../Reviews")]
         public async Task<IActionResult> PostReview([FromBody] Review review)
         {
