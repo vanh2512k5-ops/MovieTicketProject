@@ -74,7 +74,7 @@ export default function ProfileScreen() {
       } as any);
 
       try {
-        const response = await axiosClient.post(`/Users/${user.id}/upload-avatar`, formData, {
+        const response = await axiosClient.post(`/Users/upload-avatar`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
 

@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ActivityIndicator,
+  Modal,
+  Alert,
 } from "react-native";
 import { useFocusEffect, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -38,6 +40,8 @@ export default function TicketsScreen() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [qrModalVisible, setQrModalVisible] = useState(false);
+  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(null);
 
   // Xử lý link ảnh Poster tuân thủ .env
   const getPosterUrl = (path?: string) => {
@@ -61,6 +65,25 @@ export default function TicketsScreen() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleCancelBooking = (bookingId: number) => {
+    Alert.alert("Xác nhận hủy vé", "Bạn có chắc chắn muốn hủy vé này? Hành động này không thể hoàn tác.", [
+      { text: "Không", style: "cancel" },
+      { text: "Đồng ý hủy", style: "destructive", onPress: async () => {
+          try {
+            await axiosClient.put(`/Bookings/${bookingId}/cancel`);
+            Alert.alert("Thành công", "Đã hủy vé thành công!");
+            const userData = await AsyncStorage.getItem("user");
+            if (userData) {
+              fetchMyTickets(JSON.parse(userData).id);
+            }
+          } catch (error: any) {
+            Alert.alert("Lỗi", error.response?.data || "Không thể hủy vé");
+          }
+        }
+      }
+    ]);
   };
 
   useFocusEffect(
@@ -136,9 +159,14 @@ export default function TicketsScreen() {
           </View>
 
           {activeTab === "upcoming" ? (
-            <TouchableOpacity style={styles.qrButton}>
-              <Text style={styles.qrButtonText}>⬛ Mã QR</Text>
-            </TouchableOpacity>
+            <View style={{flexDirection: "row", gap: 10}}>
+              <TouchableOpacity style={[styles.qrButton, {backgroundColor: '#E53E3E'}]} onPress={() => handleCancelBooking(item.bookingId)}>
+                <Text style={[styles.qrButtonText, {color: '#FFF'}]}>Hủy vé</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.qrButton} onPress={() => { setSelectedBookingId(item.bookingId); setQrModalVisible(true); }}>
+                <Text style={styles.qrButtonText}>⬛ Mã QR</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <View style={styles.pastBadge}>
               <Text style={styles.pastBadgeText}>
@@ -229,6 +257,28 @@ export default function TicketsScreen() {
           }
         />
       )}
+
+      {/* QR Modal */}
+      <Modal visible={qrModalVisible} animationType="fade" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Mã vé vào rạp</Text>
+            {selectedBookingId && (
+              <Image 
+                source={{uri: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=BOOKING_${selectedBookingId}`}} 
+                style={{width: 200, height: 200, alignSelf: 'center', marginBottom: 20}} 
+              />
+            )}
+            <Text style={{textAlign: 'center', color: '#A0AEC0', marginBottom: 20}}>
+              Vui lòng đưa mã này cho nhân viên soát vé.
+            </Text>
+            <TouchableOpacity style={styles.loginBtn} onPress={() => setQrModalVisible(false)}>
+              <Text style={styles.loginBtnText}>Đóng</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -367,4 +417,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   loginBtnText: { color: "#FFF", fontSize: 15, fontWeight: "bold" },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.7)", justifyContent: "center", padding: 20 },
+  modalContent: { backgroundColor: "#2D3748", padding: 20, borderRadius: 12, alignItems: 'center' },
+  modalTitle: { color: "#FFF", fontSize: 18, fontWeight: "bold", marginBottom: 20, textAlign: "center" },
 });
