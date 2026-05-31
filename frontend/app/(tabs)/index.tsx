@@ -13,6 +13,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Platform,
 } from "react-native";
 
 import axiosClient from "@/utils/axiosClient";
@@ -171,22 +172,31 @@ export default function HomeScreen() {
               if (!isLoggedIn) {
                 router.push("/login" as any);
               } else {
-                Alert.alert(
-                  "Đăng xuất",
-                  "Bạn có muốn đăng xuất khỏi tài khoản này?",
-                  [
-                    { text: "Hủy", style: "cancel" },
-                    {
-                      text: "Đăng xuất",
-                      style: "destructive",
-                      onPress: async () => {
-                        await AsyncStorage.removeItem("user");
-                        checkUserSession();
-                        Alert.alert("Thành công", "Đã đăng xuất an toàn.");
+                if (Platform.OS === 'web') {
+                  if (window.confirm("Bạn có muốn đăng xuất khỏi tài khoản này?")) {
+                    AsyncStorage.removeItem("user").then(() => {
+                      checkUserSession();
+                      window.alert("Đã đăng xuất an toàn.");
+                    });
+                  }
+                } else {
+                  Alert.alert(
+                    "Đăng xuất",
+                    "Bạn có muốn đăng xuất khỏi tài khoản này?",
+                    [
+                      { text: "Hủy", style: "cancel" },
+                      {
+                        text: "Đăng xuất",
+                        style: "destructive",
+                        onPress: async () => {
+                          await AsyncStorage.removeItem("user");
+                          checkUserSession();
+                          Alert.alert("Thành công", "Đã đăng xuất an toàn.");
+                        },
                       },
-                    },
-                  ],
-                );
+                    ],
+                  );
+                }
               }
             }}
           >

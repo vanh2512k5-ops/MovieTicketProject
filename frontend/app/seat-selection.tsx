@@ -20,6 +20,7 @@ interface Seat {
   gridRow: number;
   gridColumn: number;
   isActive: boolean;
+  price: number;
 }
 
 export default function SeatSelectionScreen() {
@@ -71,6 +72,7 @@ export default function SeatSelectionScreen() {
             gridRow: s.gridRow !== undefined ? s.gridRow : 0,
             gridColumn: s.gridColumn !== undefined ? s.gridColumn : 0,
             isActive: s.isActive !== undefined ? s.isActive : true,
+            price: s.price !== undefined ? s.price : 85000,
           };
         });
 
@@ -109,9 +111,7 @@ export default function SeatSelectionScreen() {
   const totalPrice = selectedSeatIds.reduce((total, id) => {
     const seat = seats.find((s) => s.id === id);
     if (!seat) return total;
-    const price =
-      seat.type === "Couple" ? 210000 : seat.type === "VIP" ? 105000 : 85000;
-    return total + price;
+    return total + seat.price;
   }, 0);
 
   const proceedToConcessions = () => {

@@ -31,21 +31,39 @@ export default function LoginScreen() {
       const response = await axiosClient.post("/Users/login", { email, password });
       const data = response.data;
 
-      // Lưu thông tin user vào bộ nhớ máy
-      await AsyncStorage.setItem("user", JSON.stringify(data.user));
+      // Sửa lỗi undefined do khác biệt chữ hoa/thường (camelCase vs PascalCase)
+      const user = data.user || data.User;
+      const accessToken = data.accessToken || data.AccessToken;
+      const refreshToken = data.refreshToken || data.RefreshToken;
 
-      // Lưu Access Token — dùng để gắn vào mọi request
-      await AsyncStorage.setItem("accessToken", data.accessToken);
+      if (!user || !accessToken || !refreshToken) {
+         throw new Error("Dữ liệu phản hồi không hợp lệ từ máy chủ.");
+      }
 
-      // Lưu Refresh Token — dùng để xin Access Token mới khi hết hạn
-      await AsyncStorage.setItem("refreshToken", data.refreshToken);
+      // Lưu thông tin user vào bộ nhớ máy (phải là string)
+      await AsyncStorage.setItem("user", JSON.stringify(user));
+      await AsyncStorage.setItem("accessToken", String(accessToken));
+      await AsyncStorage.setItem("refreshToken", String(refreshToken));
 
-
-      Alert.alert("Thành công", `Chào mừng ${data.user.fullName} quay lại!`);
-      router.replace("/" as any); 
+      Alert.alert("Thành công", `Chào mừng ${user.fullName || user.FullName} quay lại!`);
+      
+      if (user.role === "Admin" || user.Role === "Admin") {
+          router.replace("/(admin-tabs)" as any);
+      } else {
+          router.replace("/(tabs)" as any);
+      }
     } catch (error: any) {
-      // Bắt lỗi từ backend (Axios trả lỗi trong error.response.data)
-      const errorMsg = error.response?.data?.message || error.response?.data || "Đăng nhập thất bại";
+      // Bắt lỗi từ backend cẩn thận để không bị văng app (crash do truyền object vào Alert)
+      let errorMsg = "Đăng nhập thất bại";
+      if (typeof error.response?.data === 'string') {
+        errorMsg = error.response.data;
+      } else if (error.response?.data?.message) {
+        errorMsg = error.response.data.message;
+      } else if (error.response?.data?.title) {
+        errorMsg = error.response.data.title;
+      } else if (error.message) {
+        errorMsg = error.message;
+      }
       Alert.alert("Lỗi đăng nhập", errorMsg);
     } finally {
       setIsLoading(false);

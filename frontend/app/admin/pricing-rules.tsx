@@ -1,7 +1,29 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, Modal, TextInput, Switch } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, Modal, TextInput, Switch, TouchableWithoutFeedback, Keyboard } from 'react-native';
 import axiosClient from '@/utils/axiosClient';
 import { useRouter } from 'expo-router';
+
+const RULE_TYPES = [
+  { label: 'Loại ghế (SeatType)', value: 'SeatType' },
+  { label: 'Định dạng (Format)', value: 'Format' },
+  { label: 'Khung giờ (TimeFrame)', value: 'TimeFrame' },
+];
+
+const RULE_KEYS: Record<string, {label: string, value: string}[]> = {
+  'SeatType': [
+    { label: 'Ghế VIP', value: 'VIP' },
+    { label: 'Ghế Đôi', value: 'Couple' },
+  ],
+  'Format': [
+    { label: 'Phòng IMAX', value: 'IMAX' },
+    { label: 'Phòng FirstClass', value: 'FirstClass' },
+  ],
+  'TimeFrame': [
+    { label: 'Buổi sáng (<12h)', value: 'Morning' },
+    { label: 'Buổi tối (>=18h)', value: 'Evening' },
+    { label: 'Cuối tuần (T7, CN)', value: 'Weekend' },
+  ],
+};
 
 interface PricingRule {
   id: number;
@@ -155,34 +177,61 @@ export default function AdminPricingRules() {
 
       {/* Modal Thêm / Sửa */}
       <Modal visible={modalVisible} transparent={true} animationType="slide">
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{isEditing ? 'SỬA QUY TẮC' : 'THÊM QUY TẮC MỚI'}</Text>
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View style={styles.modalContainer}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>{isEditing ? 'SỬA QUY TẮC' : 'THÊM QUY TẮC MỚI'}</Text>
 
-            <Text style={styles.label}>Loại phụ thu (VD: SeatType, Format)</Text>
-            <TextInput style={styles.input} value={ruleType} onChangeText={setRuleType} placeholderTextColor="#A0AEC0" />
+                <Text style={styles.label}>Loại phụ thu</Text>
+                <View style={styles.chipContainer}>
+                  {RULE_TYPES.map(type => (
+                    <TouchableOpacity 
+                      key={type.value}
+                      style={[styles.chip, ruleType === type.value && styles.chipActive]}
+                      onPress={() => { 
+                        setRuleType(type.value); 
+                        setRuleKey(RULE_KEYS[type.value][0].value); 
+                      }}
+                    >
+                      <Text style={[styles.chipText, ruleType === type.value && styles.chipTextActive]}>{type.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
-            <Text style={styles.label}>Từ khóa (VD: VIP, Couple, 3D)</Text>
-            <TextInput style={styles.input} value={ruleKey} onChangeText={setRuleKey} placeholderTextColor="#A0AEC0" />
+                <Text style={styles.label}>Từ khóa áp dụng</Text>
+                <View style={styles.chipContainer}>
+                  {(RULE_KEYS[ruleType] || []).map(key => (
+                    <TouchableOpacity 
+                      key={key.value}
+                      style={[styles.chip, ruleKey === key.value && styles.chipActive]}
+                      onPress={() => setRuleKey(key.value)}
+                    >
+                      <Text style={[styles.chipText, ruleKey === key.value && styles.chipTextActive]}>{key.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
 
-            <Text style={styles.label}>Số tiền (+ hoặc -)</Text>
-            <TextInput style={styles.input} value={surchargeAmount} onChangeText={setSurchargeAmount} keyboardType="numeric" placeholderTextColor="#A0AEC0" />
+                <Text style={styles.label}>Số tiền (+ hoặc -)</Text>
+                <TextInput style={styles.input} value={surchargeAmount} onChangeText={setSurchargeAmount} keyboardType="numeric" placeholderTextColor="#A0AEC0" />
 
-            <View style={styles.switchRow}>
-              <Text style={styles.label}>Kích hoạt</Text>
-              <Switch value={isActive} onValueChange={setIsActive} trackColor={{ false: '#4A5568', true: '#3182CE' }} />
-            </View>
+                <View style={styles.switchRow}>
+                  <Text style={styles.label}>Kích hoạt</Text>
+                  <Switch value={isActive} onValueChange={setIsActive} trackColor={{ false: '#4A5568', true: '#3182CE' }} />
+                </View>
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#718096' }]} onPress={() => setModalVisible(false)}>
-                <Text style={styles.btnText}>Hủy</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#3182CE' }]} onPress={handleSave}>
-                <Text style={styles.btnText}>Lưu</Text>
-              </TouchableOpacity>
-            </View>
+                <View style={styles.modalActions}>
+                  <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#718096' }]} onPress={() => setModalVisible(false)}>
+                    <Text style={styles.btnText}>Hủy</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#3182CE' }]} onPress={handleSave}>
+                    <Text style={styles.btnText}>Lưu</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </View>
   );
@@ -210,5 +259,11 @@ const styles = StyleSheet.create({
   input: { backgroundColor: '#1A202C', color: '#FFF', padding: 12, borderRadius: 8, fontSize: 16, borderWidth: 1, borderColor: '#4A5568' },
   switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 15 },
   modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 30 },
-  modalBtn: { flex: 1, padding: 15, borderRadius: 8, alignItems: 'center', marginHorizontal: 5 }
+  modalBtn: { flex: 1, padding: 15, borderRadius: 8, alignItems: 'center', marginHorizontal: 5 },
+  
+  chipContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 5 },
+  chip: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 20, backgroundColor: '#4A5568', borderWidth: 1, borderColor: '#4A5568' },
+  chipActive: { backgroundColor: 'rgba(49, 130, 206, 0.2)', borderColor: '#3182CE' },
+  chipText: { color: '#A0AEC0', fontSize: 13, fontWeight: '500' },
+  chipTextActive: { color: '#63B3ED', fontWeight: 'bold' }
 });
