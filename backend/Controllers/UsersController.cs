@@ -299,6 +299,48 @@ namespace MovieTicketAPI.Controllers
             await _context.SaveChangesAsync();
             return Ok(new { Message = "Đã xóa người dùng thành công!" });
         }
+
+        // ==========================================
+        // 5. CẬP NHẬT THÔNG TIN CÁ NHÂN
+        // ==========================================
+        [Authorize]
+        [HttpPut("me")]
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileDto request)
+        {
+            var currentUserId = User.GetUserId();
+            if (currentUserId == null) return Unauthorized();
+
+            var user = await _context.Users.FindAsync(currentUserId.Value);
+            if (user == null) return NotFound("Không tìm thấy người dùng!");
+
+            user.FullName = request.FullName;
+            user.Phone = request.Phone;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { user.Id, user.FullName, user.Email, user.Phone, user.Role, user.AvatarUrl });
+        }
+
+        // ==========================================
+        // 6. ĐỔI MẬT KHẨU
+        // ==========================================
+        [Authorize]
+        [HttpPost("change-password")]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto request)
+        {
+            var currentUserId = User.GetUserId();
+            if (currentUserId == null) return Unauthorized();
+
+            var user = await _context.Users.FindAsync(currentUserId.Value);
+            if (user == null) return NotFound("Không tìm thấy người dùng!");
+
+            if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash))
+                return BadRequest("Mật khẩu hiện tại không đúng!");
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = "Đổi mật khẩu thành công!" });
+        }
     }
 
     // Các lớp hỗ trợ nhận dữ liệu (DTO)
@@ -330,5 +372,22 @@ namespace MovieTicketAPI.Controllers
     {
         [Required]
         public string RefreshToken { get; set; } = string.Empty;
+    }
+
+    public class UpdateProfileDto
+    {
+        [Required(ErrorMessage = "Họ tên không được để trống")]
+        public string FullName { get; set; } = string.Empty;
+        public string? Phone { get; set; }
+    }
+
+    public class ChangePasswordDto
+    {
+        [Required(ErrorMessage = "Mật khẩu hiện tại không được để trống")]
+        public string CurrentPassword { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Mật khẩu mới không được để trống")]
+        [MinLength(6, ErrorMessage = "Mật khẩu mới phải có ít nhất 6 ký tự")]
+        public string NewPassword { get; set; } = string.Empty;
     }
 }

@@ -130,7 +130,7 @@ export default function SeatSelectionScreen() {
   };
 
   //Ko để trống ghế
-  const handleContinue = () => {
+  const handleContinue = async () => {
     let isInvalid = false;
     let errorMsg = "";
     const rowIndexes = Object.keys(groupedByGridRow);
@@ -179,16 +179,29 @@ export default function SeatSelectionScreen() {
       return;
     }
 
-    const ageString = ageRestriction as string;
-    if (
-      ageString &&
-      ageString !== "P" &&
-      ageString !== "Mọi lứa tuổi" &&
-      ageString !== "Không"
-    ) {
-      setShowAgeWarning(true);
-    } else {
-      proceedToConcessions();
+    // GỌI API GIỮ GHẾ NGAY LẬP TỨC 
+    try {
+      await axiosClient.post("/Bookings/hold", {
+        showtimeId: parseInt(showtimeId as string),
+        seatIds: selectedSeatIds,
+      });
+      // Nếu giữ ghế thành công thì mới đi tiếp
+      const ageString = ageRestriction as string;
+      if (
+        ageString &&
+        ageString !== "P" &&
+        ageString !== "Mọi lứa tuổi" &&
+        ageString !== "Không"
+      ) {
+        setShowAgeWarning(true);
+      } else {
+        proceedToConcessions();
+      }
+    } catch (error: any) {
+      Alert.alert(
+        "Rất tiếc", 
+        error.response?.data?.message || "Không thể giữ ghế lúc này. Có thể ai đó đã nhanh tay hơn bạn!"
+      );
     }
   };
 

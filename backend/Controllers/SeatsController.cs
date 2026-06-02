@@ -28,11 +28,13 @@ namespace MovieTicketAPI.Controllers
                 .OrderBy(s => s.RowName).ThenBy(s => s.SeatNumber)
                 .ToListAsync();
 
-            // 3. Tìm các ghế ĐÃ BỊ ĐẶT trong suất chiếu này
-            // (Giả sử vé nằm trong bảng Tickets và liên kết với bảng Bookings)
+            // 3. Tìm các ghế ĐÃ BỊ ĐẶT (Paid hoặc Pending) trong suất chiếu này
+            // Bỏ qua các ghế của booking đã bị Cancelled (hết hạn hoặc cố tình hủy)
             var bookedSeatIds = await _context.Tickets
                 .Include(t => t.Booking)
-                .Where(t => t.Booking != null && t.Booking.ShowtimeId == showtimeId)
+                .Where(t => t.Booking != null 
+                         && t.Booking.ShowtimeId == showtimeId 
+                         && t.Booking.Status != "Cancelled")
                 .Select(t => t.SeatId)
                 .ToListAsync();
 

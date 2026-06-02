@@ -62,7 +62,76 @@ namespace MovieTicketAPI.Controllers
         }
 
         // ==========================================
-        // 1. API TẠO VÉ + GỌI CỔNG THANH TOÁN
+        // 1. API GIỮ GHẾ (HOLD SEATS)
+        // ==========================================
+        [Authorize]
+        [HttpPost("hold")]
+        public async Task<IActionResult> HoldSeats([FromBody] CreateBookingRequest request)
+        {
+            if (request.SeatIds == null || !request.SeatIds.Any())
+                return BadRequest("Vui lòng chọn ít nhất 1 ghế.");
+
+            var currentUserId = User.GetUserId();
+            if (currentUserId == null) return Unauthorized(new { Message = "Không thể xác thực người dùng." });
+            int userId = currentUserId.Value;
+
+            // XÓA BOOKING CŨ CỦA CHÍNH USER NÀY (TRẠNG THÁI PENDING) MÀ TRÙNG GHẾ ĐANG CHỌN
+            var oldPendingBookings = await _context.Bookings
+                .Include(b => b.Tickets)
+                .Where(b => b.UserId == userId && b.ShowtimeId == request.ShowtimeId && b.Status == "Pending")
+                .ToListAsync();
+
+            if (oldPendingBookings.Any())
+            {
+                // Hủy TẤT CẢ booking Pending cũ của user này trong suất chiếu này
+                _context.Bookings.RemoveRange(oldPendingBookings);
+                await _context.SaveChangesAsync();
+            }
+
+            // Kiểm tra ghế đã bị đặt chưa
+            var bookedSeats = await _context.Tickets
+                .Include(t => t.Booking)
+                .Where(t => t.Booking != null
+                         && t.Booking.ShowtimeId == request.ShowtimeId
+                         && request.SeatIds.Contains(t.SeatId)
+                         && t.Booking.Status != "Cancelled")
+                .Select(t => t.SeatId)
+                .ToListAsync();
+
+            if (bookedSeats.Any())
+                return BadRequest(new { Message = "Rất tiếc, ghế bạn chọn vừa có người khác nhanh tay đặt mất rồi!", ConflictedSeatIds = bookedSeats });
+
+            // Lưu booking tạm (Hold) vào DB
+            var booking = new Booking
+            {
+                UserId      = userId,
+                ShowtimeId  = request.ShowtimeId,
+                BookingDate = DateTime.UtcNow,
+                TotalPrice  = 0, // Sẽ được tính lại khi thanh toán thật
+                Status      = "Pending",
+                ExpiresAt   = DateTime.UtcNow.AddMinutes(10) // Giữ ghế 10 phút
+            };
+
+            _context.Bookings.Add(booking);
+            await _context.SaveChangesAsync();
+
+            // Gán vé
+            var tickets = request.SeatIds.Select(seatId => new Ticket
+            {
+                SeatId = seatId,
+                Price = 0, // Tạm thời bằng 0
+                PriceDetails = "{}",
+                BookingId = booking.Id
+            }).ToList();
+
+            _context.Tickets.AddRange(tickets);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = "Giữ ghế thành công", BookingId = booking.Id });
+        }
+
+        // ==========================================
+        // 2. API TẠO VÉ CHÍNH THỨC + GỌI CỔNG THANH TOÁN
         // ==========================================
         [Authorize]
         [HttpPost]
@@ -86,12 +155,9 @@ namespace MovieTicketAPI.Controllers
 
             if (oldPendingBookings.Any())
             {
-                var oldBookingsToRemove = oldPendingBookings.Where(b => b.Tickets.Any(t => request.SeatIds.Contains(t.SeatId))).ToList();
-                if (oldBookingsToRemove.Any())
-                {
-                    _context.Bookings.RemoveRange(oldBookingsToRemove);
-                    await _context.SaveChangesAsync();
-                }
+                // Hủy TẤT CẢ booking Pending cũ của user này trong suất chiếu này
+                _context.Bookings.RemoveRange(oldPendingBookings);
+                await _context.SaveChangesAsync();
             }
 
             // Kiểm tra ghế đã bị đặt chưa (bởi người khác hoặc booking đã Paid)
@@ -378,30 +444,39 @@ namespace MovieTicketAPI.Controllers
             if (currentUserId == null) return Unauthorized(new { Message = "Không thể xác thực người dùng." });
             int userId = currentUserId.Value;
 
-            var bookings = await _context.Bookings
+            var rawBookings = await _context.Bookings
                 .Include(b => b.Showtime).ThenInclude(s => s.Movie)
                 .Include(b => b.Showtime).ThenInclude(s => s.Room).ThenInclude(r => r.Cinema)
                 .Include(b => b.Tickets).ThenInclude(t => t.Seat)
                 .Include(b => b.BookingCombos).ThenInclude(bc => bc.Combo)
                 .Where(b => b.UserId == userId)
-                .Select(b => new
-                {
-                    BookingId  = b.Id,
-                    MovieTitle = b.Showtime!.Movie!.Title,
-                    PosterUrl  = b.Showtime.Movie.PosterUrl,
-                    CinemaName = b.Showtime.Room!.Cinema!.Name,
-                    RoomName   = b.Showtime.Room.Name,
-                    ShowTime   = b.Showtime.StartTime,
-                    Seats      = b.Tickets.Select(t => t.Seat!.RowName + t.Seat!.SeatNumber.ToString()).ToList(),
-                    Combos     = b.BookingCombos.Select(bc => new { Name = bc.Combo!.Name, Quantity = bc.Quantity, Price = bc.Price }).ToList(),
-                    Status     = b.Status,
-                    TotalPrice = b.TotalPrice
-                })
-                .OrderByDescending(b => b.ShowTime)
+                .OrderByDescending(b => b.Showtime!.StartTime)
                 .ToListAsync();
 
-            if (!bookings.Any())
+            if (!rawBookings.Any())
                 return NotFound(new { Message = "Bạn chưa có lịch sử đặt vé nào." });
+
+            // Project in-memory để xử lý ghế đôi (Couple) — expand thành 2 label
+            var bookings = rawBookings.Select(b => new
+            {
+                BookingId  = b.Id,
+                MovieTitle = b.Showtime!.Movie!.Title,
+                PosterUrl  = b.Showtime.Movie.PosterUrl,
+                CinemaName = b.Showtime.Room!.Cinema!.Name,
+                RoomName   = b.Showtime.Room.Name,
+                ShowTime   = b.Showtime.StartTime,
+                Seats      = b.Tickets.SelectMany(t =>
+                {
+                    var label = (t.Seat?.RowName ?? "") + t.Seat?.SeatNumber.ToString();
+                    // Ghế đôi: hiển thị cả 2 nỚ (ví dụ: G1 và G2)
+                    if (t.Seat?.Type == SeatType.Couple)
+                        return new[] { label, (t.Seat.RowName ?? "") + (t.Seat.SeatNumber + 1).ToString() };
+                    return new[] { label };
+                }).ToList(),
+                Combos     = b.BookingCombos.Select(bc => new { Name = bc.Combo!.Name, Quantity = bc.Quantity, Price = bc.Price }).ToList(),
+                Status     = b.Status,
+                TotalPrice = b.TotalPrice
+            }).ToList();
 
             return Ok(bookings);
         }
@@ -432,6 +507,36 @@ namespace MovieTicketAPI.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { Message = "Đã hủy vé thành công." });
+        }
+
+        // ==========================================
+        // 6. THỐNG KÊ ADMIN DASHBOARD
+        // ==========================================
+        [Authorize(Roles = "Admin")]
+        [HttpGet("admin-stats")]
+        public async Task<IActionResult> GetAdminStats()
+        {
+            var today = DateTime.UtcNow.Date;
+            var allPaidBookings = await _context.Bookings
+                .Include(b => b.Showtime).ThenInclude(s => s.Movie)
+                .Where(b => b.Status == "Paid")
+                .ToListAsync();
+
+            var topMovies = allPaidBookings
+                .GroupBy(b => b.Showtime?.Movie?.Title ?? "Không xác định")
+                .OrderByDescending(g => g.Count())
+                .Take(3)
+                .Select(g => new { movieTitle = g.Key, ticketCount = g.Count() })
+                .ToList();
+
+            return Ok(new
+            {
+                totalBookings = allPaidBookings.Count,
+                totalRevenue  = allPaidBookings.Sum(b => b.TotalPrice),
+                bookingsToday = allPaidBookings.Count(b => b.BookingDate.Date == today),
+                revenueToday  = allPaidBookings.Where(b => b.BookingDate.Date == today).Sum(b => b.TotalPrice),
+                topMovies
+            });
         }
     }
 }
