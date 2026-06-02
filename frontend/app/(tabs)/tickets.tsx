@@ -14,6 +14,8 @@ import {
 import { useFocusEffect, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axiosClient from "@/utils/axiosClient";
+import QRCode from "react-native-qrcode-svg";
+import { MINIO_URL } from "../../utils/config";
 
 interface ComboInfo {
   name: string;
@@ -47,8 +49,7 @@ export default function TicketsScreen() {
   const getPosterUrl = (path?: string) => {
     if (!path) return "https://via.placeholder.com/300x450.png?text=No+Poster";
     if (path.startsWith("http") || path.startsWith("data:image")) return path;
-    const minioBaseUrl = require('../../utils/config').MINIO_URL;
-    return `${minioBaseUrl}${path}`;
+    return `${MINIO_URL}${path}`;
   };
 
   const fetchMyTickets = async (userId: number) => {
@@ -60,6 +61,7 @@ export default function TicketsScreen() {
       if (error.response?.status === 404) {
         setTickets([]); // Không có vé
       } else {
+        Alert.alert("Lỗi", "Không thể lấy lịch sử vé. Vui lòng thử lại sau.");
         console.error("Lỗi lấy lịch sử vé:", error);
       }
     } finally {
@@ -264,10 +266,12 @@ export default function TicketsScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Mã vé vào rạp</Text>
             {selectedBookingId && (
-              <Image 
-                source={{uri: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=BOOKING_${selectedBookingId}`}} 
-                style={{width: 200, height: 200, alignSelf: 'center', marginBottom: 20}} 
-              />
+              <View style={{alignSelf: 'center', marginBottom: 20, padding: 10, backgroundColor: 'white'}}>
+                <QRCode 
+                  value={`BOOKING_${selectedBookingId}`} 
+                  size={200} 
+                />
+              </View>
             )}
             <Text style={{textAlign: 'center', color: '#A0AEC0', marginBottom: 20}}>
               Vui lòng đưa mã này cho nhân viên soát vé.
