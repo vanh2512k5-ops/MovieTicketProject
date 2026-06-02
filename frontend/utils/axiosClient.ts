@@ -102,11 +102,14 @@ axiosClient.interceptors.response.use(
         message = error.response.data.title;
       }
 
-      // Tránh lặp Alert nếu có quá nhiều request lỗi cùng lúc
+      // TẮT CHỨC NĂNG TỰ ĐỘNG HIỂN THỊ ALERT TOÀN CỤC ĐỂ TRÁNH TRÙNG LẶP
+      // Mọi component tự xử lý lỗi và hiển thị Alert riêng lẻ.
+      /*
       if (!error.config._daHienThiLoi) {
         Alert.alert("Thông báo", message);
         error.config._daHienThiLoi = true;
       }
+      */
     }
 
     return Promise.reject(error);

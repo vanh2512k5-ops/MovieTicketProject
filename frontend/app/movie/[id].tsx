@@ -162,13 +162,14 @@ export default function MovieDetailScreen() {
       setNewComment("");
       fetchMovieDetail();
     } catch (error: any) {
-      console.error(error);
-      const errorMsg =
-        error.response?.data || "Không thể gửi đánh giá lúc này.";
-      Alert.alert(
-        "Lỗi",
-        typeof errorMsg === "string" ? errorMsg : "Lỗi từ server",
-      );
+      if (!error.config?._daHienThiLoi) {
+        const errorMsg =
+          error.response?.data?.message || error.response?.data || "Không thể gửi đánh giá lúc này.";
+        Alert.alert(
+          "Lỗi",
+          typeof errorMsg === "string" ? errorMsg : "Lỗi từ server",
+        );
+      }
     } finally {
       setIsSubmitting(false);
     }

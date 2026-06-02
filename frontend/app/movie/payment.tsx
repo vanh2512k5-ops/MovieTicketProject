@@ -20,6 +20,7 @@ export default function PaymentScreen() {
     movieTitle,
     selectedSeats,
     combosData,
+    combosNames,
     total,
     posterUrl,
     roomName,
@@ -33,6 +34,12 @@ export default function PaymentScreen() {
   const [bookingId, setBookingId] = useState<number | null>(null);
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Map comboId → tên combo (truyền từ concessions.tsx)
+  const comboNamesMap: Record<string, string> = (() => {
+    try { return (combosNames as string) ? JSON.parse(combosNames as string) : {}; }
+    catch { return {}; }
+  })();
 
   // Dừng polling khi unmount
   useEffect(() => {
@@ -95,6 +102,7 @@ export default function PaymentScreen() {
       // Bắt đầu polling mỗi 3 giây (timeout sau 10 phút)
       const maxRetries = 200;
       let attempts = 0;
+      let consecutiveErrors = 0;
       pollingRef.current = setInterval(async () => {
         attempts++;
         if (attempts > maxRetries) {
@@ -104,11 +112,26 @@ export default function PaymentScreen() {
         }
         try {
           const statusRes = await axiosClient.get(`/Bookings/${newId}/status`);
+          consecutiveErrors = 0; // Reset khi kết nối thành công
           if (statusRes.data.status === "Paid") {
             clearInterval(pollingRef.current!);
             setStep("success");
           }
-        } catch (_) {}
+        } catch (pollError) {
+          consecutiveErrors++;
+          console.warn(`[Polling] Lỗi lần ${consecutiveErrors}:`, pollError);
+          if (consecutiveErrors >= 5) {
+            clearInterval(pollingRef.current!);
+            Alert.alert(
+              "Lỗi kết nối",
+              "Không thể kiểm tra trạng thái thanh toán.\nVui lòng kiểm tra mục 'Vé của tôi' sau ít phút.",
+              [{ text: "Xem vé của tôi", onPress: () => {
+                  router.dismissAll();
+                  router.replace("/(tabs)/tickets" as any);
+              }}]
+            );
+          }
+        }
       }, 3000);
     } catch (error: any) {
       if (!error.config?._daHienThiLoi) {
@@ -194,9 +217,24 @@ export default function PaymentScreen() {
                 resizeMode="contain"
               />
             ) : (
-              <View style={styles.qrPlaceholder}>
-                <ActivityIndicator size="large" color="#E53E3E" />
-                <Text style={styles.qrPlaceholderText}>Đang tải QR...</Text>
+              <View style={styles.qrErrorBox}>
+                <Text style={styles.qrErrorIcon}>⚠️</Text>
+                <Text style={styles.qrErrorTitle}>Không thể tạo mã QR</Text>
+                <Text style={styles.qrErrorDesc}>
+                  Đặt vé thành công nhưng cổng thanh toán chưa phản hồi.{"\n"}
+                  Vui lòng mang mã đơn{" "}
+                  <Text style={styles.qrErrorHighlight}>#{bookingId}</Text>{" "}
+                  đến quầy rạp để lấy vé.
+                </Text>
+                <TouchableOpacity
+                  style={styles.qrErrorBtn}
+                  onPress={() => {
+                    router.dismissAll();
+                    router.replace("/(tabs)/tickets" as any);
+                  }}
+                >
+                  <Text style={styles.qrErrorBtnText}>Xem vé của tôi →</Text>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -294,7 +332,7 @@ export default function PaymentScreen() {
                   .filter(([_, qty]) => (qty as number) > 0)
                   .map(([id, qty]) => (
                     <View key={id} style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>  Combo #{id}</Text>
+                    <Text style={styles.detailLabel}>  {comboNamesMap[id] || `Combo #${id}`}</Text>
                       <Text style={styles.detailValue}>x{qty as number}</Text>
                     </View>
                   ))}
@@ -508,4 +546,26 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   successBtnText: { color: "#FFF", fontWeight: "bold", fontSize: 16 },
+
+  // QR Error state (when gateway is down)
+  qrErrorBox: {
+    width: 240,
+    minHeight: 240,
+    borderRadius: 12,
+    backgroundColor: "#4A5568",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  qrErrorIcon: { fontSize: 36, marginBottom: 10 },
+  qrErrorTitle: { color: "#FFF", fontWeight: "bold", fontSize: 15, marginBottom: 8, textAlign: "center" },
+  qrErrorDesc: { color: "#A0AEC0", fontSize: 13, textAlign: "center", lineHeight: 20, marginBottom: 16 },
+  qrErrorHighlight: { color: "#F6E05E", fontWeight: "bold" },
+  qrErrorBtn: {
+    backgroundColor: "#3182CE",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  qrErrorBtnText: { color: "#FFF", fontWeight: "bold", fontSize: 14 },
 });

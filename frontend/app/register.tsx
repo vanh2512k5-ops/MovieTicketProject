@@ -34,7 +34,29 @@ export default function RegisterScreen() {
         [{ text: "OK", onPress: () => router.back() }] 
       );
     } catch (error: any) {
-      const errorMsg = error.response?.data?.message || error.response?.data || "Đăng ký thất bại";
+      let errorMsg = "Đăng ký thất bại";
+      const data = error.response?.data;
+
+      if (typeof data === 'string') {
+        errorMsg = data;
+      } else if (Array.isArray(data)) {
+        // Trường hợp Identity Framework trả về mảng lỗi
+        errorMsg = data.map(e => e.description || JSON.stringify(e)).join('\n');
+      } else if (data?.message) {
+        errorMsg = data.message;
+      } else if (data?.title) {
+        // Trường hợp ASP.NET Validation lỗi (FluentValidation hoặc ModelState)
+        errorMsg = data.title;
+        if (data.errors) {
+          const firstErrorKey = Object.keys(data.errors)[0];
+          errorMsg += "\n" + data.errors[firstErrorKey][0];
+        }
+      } else if (typeof data === 'object') {
+        errorMsg = JSON.stringify(data);
+      } else if (error.message) {
+        errorMsg = error.message;
+      }
+
       Alert.alert("Lỗi đăng ký", errorMsg);
     } finally {
       setIsLoading(false);
