@@ -148,21 +148,41 @@ export default function ProfileScreen() {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Quản lý tài khoản</Text>
-        <TouchableOpacity style={styles.menuItem} onPress={() => !user && Alert.alert("Thông báo", "Vui lòng đăng nhập!")}>
-          <Text style={styles.menuText}>Cập nhật thông tin</Text>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() =>
+            user
+              ? router.push('/update-profile' as any)
+              : Alert.alert("Thông báo", "Vui lòng đăng nhập để sử dụng tính năng này!")
+          }
+        >
+          <Text style={styles.menuText}>📝 Cập nhật thông tin</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={() => !user && Alert.alert("Thông báo", "Vui lòng đăng nhập!")}>
-          <Text style={styles.menuText}> Đổi mật khẩu</Text>
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() =>
+            user
+              ? router.push('/change-password' as any)
+              : Alert.alert("Thông báo", "Vui lòng đăng nhập để đổi mật khẩu!")
+          }
+        >
+          <Text style={styles.menuText}>🔒 Đổi mật khẩu</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Cài đặt & Hỗ trợ</Text>
-        <TouchableOpacity style={styles.menuItem}>
-          <Text style={styles.menuText}>Gọi tổng đài CSKH</Text>
+        <TouchableOpacity 
+          style={styles.menuItem}
+          onPress={() => Alert.alert('Tổng đài CSKH', '📞 Hotline hỗ trợ: 1900 1234\n📧 Email: cskh@movieticket.vn\n🕒 Hoạt động từ 8:00 - 22:00 hàng ngày.')}
+        >
+          <Text style={styles.menuText}>📞 Gọi tổng đài CSKH</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem}>
-          <Text style={styles.menuText}>Điều khoản dịch vụ</Text>
+        <TouchableOpacity 
+          style={styles.menuItem}
+          onPress={() => router.push('/terms' as any)}
+        >
+          <Text style={styles.menuText}>📜 Điều khoản dịch vụ</Text>
         </TouchableOpacity>
       </View>
 

@@ -38,6 +38,24 @@ namespace MovieTicketAPI.Controllers
                 return Unauthorized(new { Message = "Người dùng không tồn tại." });
             }
 
+            // Validation 1: Phải có vé đã thanh toán cho phim này
+            var hasPaidBooking = await _context.Bookings
+                .Include(b => b.Showtime)
+                .AnyAsync(b => b.UserId == userId
+                            && b.Status == "Paid"
+                            && b.Showtime != null
+                            && b.Showtime.MovieId == review.MovieId);
+
+            if (!hasPaidBooking)
+                return BadRequest(new { Message = "Bạn cần mua vé và xem phim này mới có thể đánh giá!" });
+
+            // Validation 2: Chưa review phim này trước đó
+            var alreadyReviewed = await _context.Reviews
+                .AnyAsync(r => r.UserId == userId && r.MovieId == review.MovieId);
+
+            if (alreadyReviewed)
+                return BadRequest(new { Message = "Bạn đã đánh giá phim này rồi!" });
+
             // Ghi đè thông tin người dùng từ token để chống giả mạo
             review.UserId = userId;
             review.UserName = user.FullName;

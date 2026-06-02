@@ -12,22 +12,32 @@ export default function AdminDashboard() {
     users: 0,
   });
 
+  const [bookingStats, setBookingStats] = useState({
+    totalBookings: 0,
+    totalRevenue: 0,
+    bookingsToday: 0,
+    revenueToday: 0,
+    topMovies: [] as { movieTitle: string; ticketCount: number }[],
+  });
+
   useEffect(() => {
     fetchStats();
   }, []);
 
   const fetchStats = async () => {
     try {
-      const [moviesRes, cinemasRes, usersRes] = await Promise.all([
+      const [moviesRes, cinemasRes, usersRes, bookingRes] = await Promise.all([
         axiosClient.get("/Movies"),
         axiosClient.get("/Cinemas"),
-        axiosClient.get("/Users")
+        axiosClient.get("/Users"),
+        axiosClient.get("/Bookings/admin-stats"),
       ]);
       setStats({
         movies: moviesRes.data.length,
         cinemas: cinemasRes.data.length,
         users: usersRes.data.length,
       });
+      setBookingStats(bookingRes.data);
     } catch (error) {
       console.log("Error fetching stats", error);
     }
@@ -67,23 +77,74 @@ export default function AdminDashboard() {
         </TouchableOpacity>
       </View>
 
+      {/* Hàng stat cơ bản: Phim, Rạp, User */}
       <View style={styles.statsContainer}>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{stats.movies}</Text>
-          <Text style={styles.statLabel}>Phim</Text>
+          <Text style={styles.statLabel}>🎬 Phim</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{stats.cinemas}</Text>
-          <Text style={styles.statLabel}>Cụm rạp</Text>
+          <Text style={styles.statLabel}>🏛️ Rạp</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statValue}>{stats.users}</Text>
-          <Text style={styles.statLabel}>Người dùng</Text>
+          <Text style={styles.statLabel}>👥 Users</Text>
         </View>
       </View>
-      
+
+      {/* Doanh thu & Vé */}
+      <View style={styles.revenueSection}>
+        <Text style={styles.sectionTitle}>📊 Doanh thu & Vé</Text>
+        <View style={styles.revenueRow}>
+          <View style={[styles.revenueCard, { borderLeftColor: "#48BB78" }]}>
+            <Text style={styles.revenueValue}>
+              {(bookingStats.totalRevenue / 1_000_000).toFixed(1)}M
+            </Text>
+            <Text style={styles.revenueLabel}>Tổng doanh thu</Text>
+          </View>
+          <View style={[styles.revenueCard, { borderLeftColor: "#F6E05E" }]}>
+            <Text style={styles.revenueValue}>
+              {(bookingStats.revenueToday / 1_000_000).toFixed(1)}M
+            </Text>
+            <Text style={styles.revenueLabel}>Hôm nay</Text>
+          </View>
+        </View>
+        <View style={styles.revenueRow}>
+          <View style={[styles.revenueCard, { borderLeftColor: "#3182CE" }]}>
+            <Text style={styles.revenueValue}>{bookingStats.totalBookings}</Text>
+            <Text style={styles.revenueLabel}>Tổng vé bán</Text>
+          </View>
+          <View style={[styles.revenueCard, { borderLeftColor: "#E53E3E" }]}>
+            <Text style={styles.revenueValue}>{bookingStats.bookingsToday}</Text>
+            <Text style={styles.revenueLabel}>Vé hôm nay</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Top phim */}
+      {bookingStats.topMovies.length > 0 && (
+        <View style={styles.topMoviesSection}>
+          <Text style={styles.sectionTitle}>🏆 Top phim bán chạy</Text>
+          {bookingStats.topMovies.map((movie, idx) => (
+            <View key={idx} style={styles.topMovieRow}>
+              <Text style={styles.topMovieRank}>
+                {idx === 0 ? "🥇" : idx === 1 ? "🥈" : "🥉"}
+              </Text>
+              <Text style={styles.topMovieTitle} numberOfLines={1}>
+                {movie.movieTitle}
+              </Text>
+              <View style={styles.topMovieBadge}>
+                <Text style={styles.topMovieBadgeText}>{movie.ticketCount} vé</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Menu chức năng */}
       <View style={styles.menuContainer}>
-         <Text style={styles.menuTitle}>Chức năng mở rộng</Text>
+         <Text style={styles.sectionTitle}>Chức năng mở rộng</Text>
          <TouchableOpacity 
             style={styles.menuItem} 
             onPress={() => router.push("/admin/room-list" as any)}
@@ -133,9 +194,44 @@ const styles = StyleSheet.create({
     width: "30%",
   },
   statValue: { fontSize: 24, fontWeight: "bold", color: "#3182CE", marginBottom: 5 },
-  statLabel: { fontSize: 14, color: "#A0AEC0" },
-  menuContainer: { paddingHorizontal: 20 },
-  menuTitle: { fontSize: 18, color: '#FFF', fontWeight: 'bold', marginBottom: 15 },
-  menuItem: { backgroundColor: '#2D3748', padding: 20, borderRadius: 12, marginBottom: 15 },
-  menuItemText: { color: '#FFF', fontSize: 16, fontWeight: 'bold' }
+  statLabel: { fontSize: 12, color: "#A0AEC0", textAlign: "center" },
+
+  // Revenue section
+  revenueSection: { paddingHorizontal: 20, marginBottom: 24 },
+  sectionTitle: { fontSize: 16, color: "#FFF", fontWeight: "bold", marginBottom: 14 },
+  revenueRow: { flexDirection: "row", gap: 12, marginBottom: 12 },
+  revenueCard: {
+    flex: 1,
+    backgroundColor: "#2D3748",
+    borderRadius: 10,
+    padding: 16,
+    borderLeftWidth: 4,
+  },
+  revenueValue: { fontSize: 22, fontWeight: "bold", color: "#FFF", marginBottom: 4 },
+  revenueLabel: { fontSize: 12, color: "#A0AEC0" },
+
+  // Top movies
+  topMoviesSection: { paddingHorizontal: 20, marginBottom: 24 },
+  topMovieRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#2D3748",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+    gap: 10,
+  },
+  topMovieRank: { fontSize: 22, width: 30 },
+  topMovieTitle: { flex: 1, color: "#FFF", fontSize: 14, fontWeight: "600" },
+  topMovieBadge: {
+    backgroundColor: "#3182CE",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  topMovieBadgeText: { color: "#FFF", fontSize: 12, fontWeight: "bold" },
+
+  menuContainer: { paddingHorizontal: 20, marginBottom: 40 },
+  menuItem: { backgroundColor: "#2D3748", padding: 20, borderRadius: 12, marginBottom: 15 },
+  menuItemText: { color: "#FFF", fontSize: 16, fontWeight: "bold" },
 });

@@ -72,11 +72,17 @@ export default function ConcessionsScreen() {
     fetchCombos();
   }, []);
 
+  const MAX_QUANTITY = 5;
+
   const updateQuantity = (id: number, delta: number) => {
     setQuantities((prev) => {
       const currentVal = prev[id] || 0;
       const newVal = currentVal + delta;
       if (newVal < 0) return prev;
+      if (newVal > MAX_QUANTITY) {
+        Alert.alert("Thông báo", `Tối đa ${MAX_QUANTITY} phần cho mỗi combo!`);
+        return prev;
+      }
       return { ...prev, [id]: newVal };
     });
   };
@@ -174,6 +180,9 @@ export default function ConcessionsScreen() {
                 movieTitle,
                 selectedSeats,
                 combosData: JSON.stringify(quantities),
+                combosNames: JSON.stringify(
+                  combos.reduce((acc, c) => ({ ...acc, [c.id]: c.name }), {} as Record<number, string>)
+                ),
                 total: finalTotal,
                 posterUrl,
                 roomName,
