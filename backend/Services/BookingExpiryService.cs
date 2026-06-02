@@ -55,9 +55,9 @@ namespace MovieTicketAPI.Services
 
             // Lấy danh sách tất cả booking Pending đã vượt quá ExpiresAt
             var expiredBookings = await context.Bookings
-                .Where(b => b.Status == "Pending"
+                .Where(b => b.Status == MovieTicketAPI.Constants.BookingStatus.Pending
                          && b.ExpiresAt != null
-                         && b.ExpiresAt < now)
+                         && b.ExpiresAt < DateTime.UtcNow)
                 .ToListAsync(cancellationToken);
 
             if (!expiredBookings.Any())
